@@ -1,0 +1,44 @@
+#!/bin/bash
+echo ""
+echo ""
+echo ""
+echo "========================================================================="
+echo "|Quản lý Database => Xem thông tin tài khoản database                   |"
+echo "========================================================================="
+echo ""
+echo ""
+
+. /etc/wptt/.wptt.conf
+echo '--------------------------------------------------'
+echo 'Tài khoản USER database root'
+echo "Username database : $database_admin_username"
+echo "Password database : $database_admin_password"
+if [ "$(ls -A /etc/wptt/vhost)" ]; then
+	echo '--------------------------------------------------'
+	for entry in $(ls -A /etc/wptt/vhost); do
+		domain=$( echo $entry | sed 's/^.//' | sed 's/.conf//')
+		path="/usr/local/lsws/$domain/html"
+		i=1
+		subfolder_su_dung=''
+		if [[ -d "$path" ]]; then
+			. /etc/wptt/vhost/.$domain.conf && echo "website: $domain" && echo "Database Name: $DB_Name_web" && echo "Username database: $DB_User_web" && echo "Password database: $DB_Password_web"
+			if [[ $subfolder_su_dung && -d /etc/wptt/$domain-wptt ]];then
+				query_sub=($(ls -At /etc/wptt/$domain-wptt))
+				for subfolder in ${query_sub[@]};do
+					. /etc/wptt/$domain-wptt/$subfolder
+					echo "++++++++++++++++++++++++++++++++++++++++++++++++++"
+					echo "website subfolder $domain/$thumuc"
+					echo "Database Name: $DB_Name_web" && echo "Username database: $DB_User_web" && echo "Password database: $DB_Password_web"
+					echo "++++++++++++++++++++++++++++++++++++++++++++++++++"
+				done
+			fi
+			echo "--------------------------------------------------" && echo ""
+		fi
+	done
+fi
+
+check_menu_wptangtoc_active=$1
+if [[ $check_menu_wptangtoc_active = "98" ]];then
+. /etc/wptt/wptt-db-main 1
+fi
+

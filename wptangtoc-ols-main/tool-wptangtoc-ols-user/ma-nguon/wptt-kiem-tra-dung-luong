@@ -1,0 +1,17 @@
+#!/bin/bash
+echo ""
+echo ""
+echo ""
+echo "========================================================================="
+echo "|Quan ly Ma nguon => Kiem tra dung luong website                        |"
+echo "========================================================================="
+echo ""
+echo ""
+. /etc/wptt-user/tenmien
+lua_chon_NAME
+name="$NAME"
+
+echo "Dung luong ma nguon website $name: "
+echo ""
+kiemtra_dung_luong=$(du -hs /usr/local/lsws/$name/html | cut -c 1-4)
+echo "Dung luong ma nguon website $name la ${kiemtra_dung_luong}"

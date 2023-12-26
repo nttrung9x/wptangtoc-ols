@@ -1,0 +1,91 @@
+#!/bin/bash
+echo ""
+echo ""
+echo ""
+echo "========================================================================="
+echo "|Cấu hình webserver => Cấu hình Webserver OpenLiteSpeed                 |"
+echo "========================================================================="
+
+echo "Xác nhận bạn muốn cấu hình lại webserver OpenLiteSpeed ? "
+prompt="Nhập lựa chọn của bạn [1-2]: "
+dongy="n"
+options=("Đồng ý" "Không đồng ý")
+PS3="$prompt"
+select opt in "${options[@]}"; do
+	case "$REPLY" in
+		1)
+			dongy="y"
+			break
+			;;
+
+		2)
+			dongy="n"
+			break
+			;;
+
+		$((${#options[@]} + 1)))
+			printf "\nBạn nhập sai hệ thống sẽ chọn là không đồng ý\n"
+			break
+			;;
+		*)
+			printf "Bạn nhập sai hệ thống sẽ chọn là không đồng ý\n"
+			break
+			;;
+	esac
+done
+
+
+if [[ "$dongy" = "y" ]]; then
+. /etc/wptt/.wptt.conf
+if [[ $editor_cau_hinh = "" ]];then
+editor_cau_hinh="nano" 
+fi
+echo '                                              
+                     ::::                     
+                    :-::-:                    
+        ..      ..::::::::::..      ..        
+       :-:-:..:----::::::::---::..:-:-:       
+       .:::::--:..          ..:--:::::.       
+        .::::.                  :::::.        
+        ::::                     .::::        
+       ::::       .-=++++=-.       ::::       
+      .-::       =*******##*=       ::-.      
+  ..::::-.      +********:.+#=      ::::::..  
+  ---:::-.     .***=-**- .=***      .-:::---  
+  ..::::-.      +**=.  .=****=      ::::::..  
+      .-::      .+*#*==*****=       ::-.      
+       ::::       :=+***++-.       ::::       
+        ::::                      ::::        
+        .::::.                  :::::.        
+       .:::::--:.            .:--:::::.       
+       :-:-:..::--::::..:::---::..:-:-:       
+        ..       ..::::::::..       ..        
+                    .::::.                    
+                     ::::                     
+                                              
+'
+echo "Sử dụng công cụ editor: $editor_cau_hinh để chỉnh sửa"
+if [[ $editor_cau_hinh = "nano" ]];then
+    echo "Chỉnh sửa xong ấn ctrl + o để lưu lại và ctrl + x để thoát ra"
+    echo "Hãy cẩn thận khi chỉnh sửa lại webserver LiteSpeed !!"
+    sleep 4
+fi
+sleep 2
+check_thay_doi=$(md5sum /usr/local/lsws/conf/httpd_config.conf |cut -f1 -d ' ' > /tmp/vhost_cau_hinh_wptangtoc)
+    $editor_cau_hinh /usr/local/lsws/conf/httpd_config.conf
+	if [[ $(cat /tmp/vhost_cau_hinh_wptangtoc) != $(md5sum /usr/local/lsws/conf/httpd_config.conf |cut -f1 -d ' ')  ]];then
+. /etc/wptt/echo-color
+	_runing "Khởi động lại LiteSpeed để cập nhật giá trị"
+    /usr/local/lsws/bin/lswsctrl restart >/dev/null 2>&1
+	_rundone "Khởi động lại LiteSpeed để cập nhật giá trị"
+	fi
+else
+    . /etc/wptt/wptt-cau-hinh-websever-main 1
+fi
+
+check_menu_wptangtoc_active=$1
+if [[ $check_menu_wptangtoc_active = "98" ]];then
+. /etc/wptt/wptt-cau-hinh-websever-main 1
+fi
+
+

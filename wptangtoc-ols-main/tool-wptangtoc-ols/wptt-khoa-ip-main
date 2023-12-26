@@ -1,0 +1,37 @@
+#!/bin/bash
+if [[ $1 = "" ]];then
+. /etc/wptt/wptt-header-menu
+header_menu
+else
+	. /etc/wptt/echo-color
+echoDo "=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-="
+fi
+
+echo ""
+echo ""
+echo "Quản lý Mở/khóa IP:"
+echo ""
+options=(
+    "Khóa IP"                               #1
+    "Mở Khóa IP"                            #2
+    "Danh sách IP đã bị khóa"                  #3
+)
+PS3="
+Nhập lựa chọn của bạn (1-${#options[@]}) [0=Thoát]: "
+select opt in "${options[@]}"; do
+    case $opt in
+
+    "${options[0]}")
+        "/etc/wptt/fail2ban/wptt-khoa-ip" 98
+        ;;
+    "${options[1]}")
+        "/etc/wptt/fail2ban/wptt-mokhoaip" 98
+        ;;
+
+    "${options[2]}")
+        "/etc/wptt/fail2ban/wptt-list" 98
+        ;;
+
+    *) wptangtoc ;;
+    esac
+done

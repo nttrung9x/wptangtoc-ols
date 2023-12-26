@@ -1,0 +1,119 @@
+#!/bin/bash
+echo "========================================================================="
+echo "Quản lý Swap > Thêm Swap"
+echo "========================================================================="
+echo ""
+. /etc/wptt/echo-color
+
+uswap=$(free -m | awk '/Swap/ {print $2}')
+uswap_dang_dung=$(free -m | awk '/Swap/ {print $3}')
+uswap_con_trong=$(free -m | awk '/Swap/ {print $4}')
+
+echo "Dung lượng swap hiện tại: ${uswap}MB"
+echo "Dung lượng swap đang dùng: ${uswap_dang_dung}MB"
+echo "Dung lượng swap đang còn thừa: ${uswap_con_trong}MB"
+
+
+echo ""
+echo ""
+read -p "Nhập số dung lượng MB swap bạn muốn thêm (ví dụ: 1024): " swap
+
+
+if [[ ! $swap =~ ^-?[0-9]+$ ]]; then
+	echoDo "Bạn nhập sai kiểu dữ liệu vui lòng nhập số nguyên"
+	. /etc/wptt/wptt-swap-main 1
+fi
+
+
+tong_ram_byte=$(awk '/MemTotal/ {print $2}' /proc/meminfo)
+rong_ram_mb=$(echo "scale=0;${tong_ram_byte}/1024" | bc)
+if [[ "$rong_ram_mb" = "" ]]; then
+  rong_ram_mb="2048"
+fi
+tong_ram_mb_db=$(echo "scale=0;${rong_ram_mb}/2.6" | bc)
+
+gap3swap=$(expr $rong_ram_mb \* 2)
+if (( "$gap3swap" < "$swap" ));then
+echoDo "Swap không lên gấp hơn 2 lần so với ram thật sẽ ảnh hưởng tiêu cực đến hiệu suất"
+echo "Khuyến cáo sẽ không tốt cho hiệu suất tổng thể webserver bạn có muốn tiếp tục tạo Swap không?"
+prompt="Nhập lựa chọn của bạn [1-2]: "
+swaptao_dong_y="n"
+options=("Đồng ý" "Không đồng ý")
+PS3="$prompt"
+select opt in "${options[@]}"; do
+	case "$REPLY" in
+		1)
+			swaptao_dong_y="y"
+			break
+			;;
+
+		2)
+			swaptao_dong_y="n"
+			break
+			;;
+
+		$((${#options[@]} + 1)))
+			printf "\nBạn nhập sai hệ thống sẽ chọn là không đồng ý\n"
+			break
+			;;
+		*)
+			printf "Bạn nhập sai hệ thống sẽ chọn là không đồng ý\n"
+			break
+			;;
+	esac
+done
+if [[ $swaptao_dong_y = 'n' ]];then
+. /etc/wptt/wptt-swap-main 1
+fi
+fi
+
+echo "Xác nhận thiết lập ${swap}MB làm swap?"
+
+prompt="Nhập lựa chọn của bạn [1-2]: "
+confirm="n"
+options=("Đồng ý" "Không đồng ý")
+PS3="$prompt"
+select opt in "${options[@]}"; do
+	case "$REPLY" in
+		1)
+			confirm="y"
+			break
+			;;
+
+		2)
+			confirm="n"
+			break
+			;;
+
+		$((${#options[@]} + 1)))
+			printf "\nBạn nhập sai hệ thống sẽ chọn là không đồng ý\n"
+			break
+			;;
+		*)
+			printf "Bạn nhập sai hệ thống sẽ chọn là không đồng ý\n"
+			break
+			;;
+	esac
+done
+
+
+
+if [[ "$confirm" = 'y' ]]; then
+_runing "Thiết lập ${swap}MB làm swap"	
+swapoff -a -v >/dev/null 2>&1
+	rm -rf /var/swap.1
+/bin/dd if=/dev/zero of=/var/swap.1 bs=1M count=$swap >/dev/null 2>&1
+/sbin/mkswap /var/swap.1 >/dev/null 2>&1
+/sbin/swapon /var/swap.1 >/dev/null 2>&1
+sed -i '/swap.1/d' /etc/fstab
+sed -i '/ swap / s/^\(.*\)$/#\1/g' /etc/fstab
+echo '/var/swap.1 none swap defaults 0 0' >> /etc/fstab
+_rundone "Thiết lập ${swap}MB làm Swap"	
+sleep 1
+fi
+
+check_menu_wptangtoc_active=$1
+if [[ $check_menu_wptangtoc_active = "98" ]];then
+. /etc/wptt/wptt-swap-main 1
+fi
+

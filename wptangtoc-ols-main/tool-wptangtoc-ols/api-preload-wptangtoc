@@ -1,0 +1,144 @@
+#!/bin/bash
+
+NAME=$1
+if [[ $NAME = "98" ]];then
+NAME=""
+fi
+
+if [[ "$NAME" = "" ]]; then
+    . /etc/wptt/tenmien
+    echo ""
+    echo ""
+	echo "Lựa chọn website muốn kết nối:"
+    echo ""
+    lua_chon_NAME
+fi
+
+if [[ $NAME = "0" || $NAME = '' ]];then
+exit
+fi
+
+. /etc/wptt/echo-color
+path="/etc/wptt/vhost/.$NAME.conf"
+if [[ ! -f "$path" ]]; then
+    clear
+    echoDo "Domain khong ton tai tren VPS."
+    exit
+fi
+
+pathcheckwp="/usr/local/lsws/$NAME/html/wp-load.php"
+if [[ ! -f "$pathcheckwp" ]]; then
+  clear
+  echoDo "He thong xac nhan ban chua kich hoat su dung WordPress"
+  sleep 3
+  exit
+fi
+
+# pathcheckwptangtoc="/usr/local/lsws/$NAME/html/wp-content/plugins/wptangtoc/main-wptangtoc.php"
+# if [[ ! -f "$pathcheckwptangtoc" ]]; then
+#   clear
+#   echoDo "Hệ thống xác nhận chưa kích hoạt sử dụng WPTangToc"
+#  sleep 3
+# return 2>/dev/null; exit
+# fi
+
+if [[ -f /etc/cron.d/$NAME-api-wptt-pre.cron ]];then
+echoDo "Đã kết nối rồi"
+read -p "Ghi đè (y/n): " dongyghide
+if [[ $dongyghide != 'y' ]];then
+return 2>/dev/null; exit
+else
+rm -f /etc/cron.d/$NAME-api-wptt-pre.cron
+rm -f /etc/cron.d/$NAME-api-wptt-pre-du-phong.cron
+fi
+fi
+
+_runing "Setup API preload"
+date=$(date +\%m)
+loc_thang=$(echo $date | sed 's/0//g')
+
+
+date_day=$(date +\%d)
+loc_day=$(echo $date_day | sed 's/0//g')
+tru_day=$(expr $loc_day - 1)
+
+check_day_1=$(echo $tru_day | grep '^0$')
+if [[ $check_day_1 ]];then
+tru_day='29'
+loc_thang=$(expr $loc_thang - 1)
+fi
+
+#tự động căn múi giờ preload lúc khách hàng đi ngủ
+timezone="$(wget -q -T10 -O- ipinfo.io/timezone)"
+checktime_ip=$(TZ=${timezone} date "+%H")
+thoigian_hientai=$(date "+%H")
+
+
+#preload all muốn thực thi 0 giờ đêm
+chenh_lenh="0"
+#preload all bash muốn thực thi 2 giờ sáng
+thoi_gian_thuc_thi_preload_cache_bash='2'
+
+if [[ $thoigian_hientai != $checktime_ip ]];then
+	chenh_lenh=$(expr $thoigian_hientai - $checktime_ip | sed 's/-//g')
+	thoi_gian_thuc_thi_preload_cache_bash=$(expr $chech_lenh + 2)
+
+	if [[ ! $chenh_lenh =~ ^-?[0-9]+$ ]]; then
+		chenh_lenh="0"
+	fi
+
+	if (("$chenh_lenh" > "23")); then
+		chenh_lenh="0"
+	fi
+
+	if [[ ! $thoi_gian_thuc_thi_preload_cache_bash =~ ^-?[0-9]+$ ]]; then
+		thoi_gian_thuc_thi_preload_cache_bash="2"
+	fi
+
+	if (("$thoi_gian_thuc_thi_preload_cache_bash" > "23")); then
+		thoi_gian_thuc_thi_preload_cache_bash="2"
+	fi
+
+fi
+
+check_trunglap=$(cat <(crontab -l) | grep 'wptt-preload-cache2' | grep -v $NAME)
+if [[ $check_trunglap ]];then
+	so_lan_trung_lap=$(echo $check_trunglap |wc -l)
+	chenh_lenh=$(expr $chech_lenh + $so_lan_trung_lap)
+	#preload all bash muốn thực thi 2 giờ sáng
+	thoi_gian_thuc_thi_preload_cache_bash=$(expr $thoi_gian_thuc_thi_preload_cache_bash + $so_lan_trung_lap)
+	if (("$thoi_gian_thuc_thi_preload_cache_bash" > "23")); then
+		thoi_gian_thuc_thi_preload_cache_bash="0"
+	fi
+	if (("$chenh_lenh" > "23")); then
+		chenh_lenh="0"
+	fi
+fi
+
+cat <(crontab -l) | sed "/$NAME/d" | crontab -
+cat <(crontab -l) <(echo "0 $thoi_gian_thuc_thi_preload_cache_bash * * * bash /etc/wptt/wptt-preload-cache2 $NAME >/dev/null 2>&1") | crontab -
+cat <(crontab -l) <(echo "*/5 * * * * bash /etc/wptt/preload-wptangtoc-api $NAME >/dev/null 2>&1") | crontab -
+
+
+if [[ -f /usr/local/lsws/$NAME/html/wp-content/plugins/wptangtoc/class/PreloadAllPHP.php ]];then
+. /etc/wptt/vhost/.$NAME.conf
+if [[ $phien_ban_php_domain = '' ]];then
+phien_ban_php_domain=$(php -v |grep cli | cut -c 4-7| sed 's/ //g')
+fi
+
+#chuyen doi vi du: 7.4 thanh 74
+phien_ban_php_domain=${phien_ban_php_domain//[-._]/}
+
+cat <(crontab -l) <(echo "0 $chenh_lenh * * * /bin/bash /etc/wptt/cache/php-cache-preload-wptangtoc.sh $NAME >/dev/null 2>&1") | crontab -
+fi
+
+cat >"/etc/cron.d/$NAME-api-wptt-pre.cron" <<END
+0 0 $tru_day $loc_thang * root /etc/wptt/delete-preload-api $NAME
+END
+
+cat >"/etc/cron.d/$NAME-api-wptt-pre-du-phong.cron" <<END
+0 12 $tru_day $loc_thang * root /etc/wptt/delete-preload-api $NAME
+END
+
+_rundone "Setup API preload"
+systemctl restart crond

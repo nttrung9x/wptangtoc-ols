@@ -1,0 +1,59 @@
+#!/bin/bash
+echo ""
+echo ""
+echo ""
+echo "========================================================================="
+echo "|Quan ly PHP => Khoi phuc uploads-max PHP                                |"
+echo "========================================================================="
+echo ""
+echo ""
+echo ""
+. /etc/wptt/.wptt.conf
+. /etc/wptt/php/wptt-php-version-domain 1
+
+echo "Lựa chọn phiên bản PHP bạn muốn cấu hình cập nhật uploads-max php.ini:"
+. /etc/wptt/php/tenmien-php
+
+
+port="8"
+if [[ "$port" = "0" || "$port" = "" ]]; then
+    clear
+    . /etc/wptt/wptt-php-ini-main
+    exit
+fi
+
+if [[ ! $port =~ ^-?[0-9]+$ ]]; then
+    clear
+    echo "Nhap sai truong du lieu hay nhap mot con so tu nhien dung luong backup cua ban"
+    exit
+fi
+
+read -p "Xac nhan ban muon khoi phuc uploads max (y/n): " check
+if [[ "$check" = "y" ]]; then
+	# php_server=$(php -i | grep php.ini | grep Loaded | cut -c 30-80 | cut -f5 -d "/")
+
+	php=$(echo "/usr/local/lsws/$LSPHP/etc/php.ini")
+
+	if [[ ! -f $php ]];then
+echo "Khong xac duoc dinh file php.ini"
+exit
+	fi
+
+    sed -i "/upload_max_filesize/d" "$php"
+    sed -i "/upload-max-filesize/a upload_max_filesize = ${port}M" "$php"
+
+    sed -i "/post_max_size/d" "$php"
+    sed -i "/post-max-size/a post_max_size = ${port}M" "$php"
+
+    /usr/local/lsws/bin/lswsctrl restart >/dev/null 2>&1
+
+    echo "-------------------------------------------------------------------------"
+    echo "Cap nhat hoan tat khoi phuc uploads max php.ini"
+    echo "-------------------------------------------------------------------------"
+fi
+
+check_menu_wptangtoc_active=$1
+if [[ $check_menu_wptangtoc_active = "98" ]];then
+. /etc/wptt/wptt-php-ini-main 1
+fi
+

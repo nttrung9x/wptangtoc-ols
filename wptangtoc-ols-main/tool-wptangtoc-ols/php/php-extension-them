@@ -1,0 +1,264 @@
+#!/bin/bash
+# @author: Gia Tuấn
+# @website: https://wptangtoc.com
+# @email: giatuan@wptangtoc.com
+# @since: 2023
+
+echo "Lựa chọn phiên bản PHP bạn muốn cài đặt thêm PHP extension:"
+. /etc/wptt/php/tenmien-php
+
+. /etc/wptt/echo-color
+
+if [[ "$LSPHP" = "0" ]];then
+	. /etc/wptt/wptt-php-ini-main 1
+fi
+
+if [[ "$LSPHP" = "" ]];then
+	. /etc/wptt/wptt-php-ini-main 1
+fi
+
+if [[ ! -d /usr/local/lsws/$LSPHP ]];then
+	echoDo "Khong xac dinh duoc dir php"
+	exit
+fi
+
+if [[ -f /tmp/php_extension.txt ]];then
+	rm -f /tmp/php_extension.txt
+fi
+
+
+if [[ $(which dnf 2>/dev/null) ]];then
+	dnf clean all >/dev/null 2>&1
+	rpm -Uvh http://rpms.litespeedtech.com/centos/litespeed-repo-1.3-1.el8.noarch.rpm >/dev/null 2>&1
+else
+	yum clean all >/dev/null 2>&1
+	rpm -Uvh http://rpms.litespeedtech.com/centos/litespeed-repo-1.3-1.el7.noarch.rpm >/dev/null 2>&1
+fi
+
+_runing "Tiến hành quét extension $LSPHP"
+
+#yum clean all để search cho update cập nhật
+yum clean all >/dev/null 2>&1
+
+php_extension_da_cai_dat=($(yum list installed --disablerepo="*" --enablerepo="litespeed" 2>/dev/null | grep $LSPHP | cut -f2-10 -d '-'  | cut -f1 -d '.' | sed '1d' | sed '/^$/d'|sort | uniq))
+php_extension=($(yum search lsphp --disablerepo="*" --enablerepo="litespeed" 2>/dev/null | grep $LSPHP | cut -f2-10 -d '-'  | cut -f1 -d '.' | sed '/-debuginfo/d'|sed '/^$/d' | sed "/$LSPHP/d" |sort | uniq ))
+
+#kiểm tra Repository litespeed nếu bị lỗi thay Repository dự phòng
+if [[ $php_extension = '' ]];then
+	sed -i '/rpms.litespeedtech.com/d' /etc/hosts
+	echo $'\n89.208.248.38 rpms.litespeedtech.com\n' >> /etc/hosts
+	yum clean all >/dev/null 2>&1
+	php_extension=''
+	php_extension=($(yum search lsphp --disablerepo="*" --enablerepo="litespeed" 2>/dev/null | grep $LSPHP | cut -f2-10 -d '-'  | cut -f1 -d '.' |sed '/^$/d' | sed "/$LSPHP/d" |sort | uniq ))
+	repo_du_phong=1
+fi
+
+if [[ $php_extension = '' ]];then
+_runloi "Tiến hành quét extension $LSPHP"
+	sed -i '/rpms.litespeedtech.com/d' /etc/hosts
+. /etc/wptt/wptt-php-ini-main 1
+fi
+
+
+for phpexe in ${php_extension[@]};do
+	if [[ ! " ${php_extension_da_cai_dat[@]} " =~ " ${phpexe} " ]]; then
+		echo "$phpexe" >> /tmp/php_extension.txt
+	fi
+done
+
+
+if [[ $(ls /usr/local/lsws/$LSPHP/lib64/php/modules | grep 'ioncube') = '' ]];then
+	#them ioncube vao lua chon kho lưu trữ litespeed không có ioncube tự cài thêm vào
+	echo "ioncube" >> /tmp/php_extension.txt
+fi
+
+
+_rundone "Tiến hành quét extension $LSPHP"
+
+clear
+echo "Danh sách các extension PHP bạn có thể cài đặt: "
+selects=()
+for entry in $(uniq /tmp/php_extension.txt); do
+	selects+=("$entry")
+done
+
+PS3="
+-//- Nhập lựa chọn của bạn [0=Thoát]: "
+select select in ${selects[@]}; do
+	php_extension_chon=$select
+	break
+done
+
+
+if [[ $php_extension_chon = "0" ]];then
+	. /etc/wptt/wptt-php-ini-main 1
+fi
+
+
+if [[ $php_extension_chon = "" ]];then
+	echoDo "Bạn chưa lựa chọn extension PHP"
+	. /etc/wptt/wptt-php-ini-main 1
+fi
+
+
+if [[ $(which dnf) = '' ]];then
+	#cai dat soap
+	if [[ $php_extension_chon = 'soap' && $LSPHP = 'lsphp74' ]];then
+		_runing "Cài đặt $LSPHP extension $php_extension_chon"
+		rpm -ivh http://rpms.litespeedtech.com/centos/7/update/x86_64/RPMS/lsphp74-soap-7.4.33-2.el7.x86_64.rpm
+		_rundone "Cài đặt $LSPHP extension $php_extension_chon"
+		. /etc/wptt/wptt-php-ini-main 1
+		exit
+	fi
+
+	if [[ $php_extension_chon = 'soap' && $LSPHP = 'lsphp81' ]];then
+		_runing "Cài đặt $LSPHP extension $php_extension_chon"
+		rpm -ivh http://rpms.litespeedtech.com/centos/7/update/x86_64/RPMS/lsphp81-soap-8.1.21-2.el7.x86_64.rpm
+		_rundone "Cài đặt $LSPHP extension $php_extension_chon"
+		. /etc/wptt/wptt-php-ini-main 1
+		exit
+	fi
+fi
+
+if [[ $php_extension_chon = 'ioncube' && $LSPHP = 'lsphp82' ]];then
+	_runing "Cài đặt $LSPHP extension $php_extension_chon"
+	if [[ -f /usr/local/lsws/lsphp82/lib64/php/modules/ioncube_loader_lin_8.2.so ]];then
+		echo "Đã được cài đặt ioncube cho lsphp81 trước đó rồi"
+		. /etc/wptt/wptt-php-ini-main 1
+		exit
+	fi
+
+	wget -N https://downloads.ioncube.com/loader_downloads/ioncube_loaders_lin_x86-64.zip
+	unzip -o ioncube_loaders_lin_x86-64.zip
+	cd ioncube && chmod +x *.so && ls
+	cp ioncube_loader_lin_8.2.so /usr/local/lsws/lsphp82/lib64/php/modules
+	cd -
+	rm -rf ioncube
+	rm -f ioncube_loaders_lin_x86-64.zip
+	echo 'zend_extension = "/usr/local/lsws/lsphp82/lib64/php/modules/ioncube_loader_lin_8.2.so"' >> /usr/local/lsws/lsphp81/etc/php.ini
+	/usr/local/lsws/bin/lswsctrl restart >/dev/null 2>&1
+	_rundone "Cài đặt $LSPHP extension $php_extension_chon"
+	check_menu_wptangtoc_active=$1
+	if [[ $check_menu_wptangtoc_active = "98" ]];then
+		. /etc/wptt/wptt-php-ini-main 1
+	fi
+fi
+
+
+if [[ $php_extension_chon = 'ioncube' && $LSPHP = 'lsphp81' ]];then
+	_runing "Cài đặt $LSPHP extension $php_extension_chon"
+	if [[ -f /usr/local/lsws/lsphp81/lib64/php/modules/ioncube_loader_lin_8.1.so ]];then
+		echo "Đã được cài đặt ioncube cho lsphp81 trước đó rồi"
+		. /etc/wptt/wptt-php-ini-main 1
+		exit
+	fi
+	wget -N https://downloads.ioncube.com/loader_downloads/ioncube_loaders_lin_x86-64.zip
+	unzip -o ioncube_loaders_lin_x86-64.zip
+	cd ioncube && chmod +x *.so && ls
+	cp ioncube_loader_lin_8.1.so /usr/local/lsws/lsphp81/lib64/php/modules
+	cd -
+	rm -rf ioncube
+	rm -f ioncube_loaders_lin_x86-64.zip
+	echo 'zend_extension = "/usr/local/lsws/lsphp81/lib64/php/modules/ioncube_loader_lin_8.1.so"' >> /usr/local/lsws/lsphp81/etc/php.ini
+	/usr/local/lsws/bin/lswsctrl restart >/dev/null 2>&1
+	_rundone "Cài đặt $LSPHP extension $php_extension_chon"
+	check_menu_wptangtoc_active=$1
+	if [[ $check_menu_wptangtoc_active = "98" ]];then
+		. /etc/wptt/wptt-php-ini-main 1
+	fi
+fi
+
+
+if [[ $php_extension_chon = 'ioncube' && $LSPHP = 'lsphp82' ]];then
+	_runing "Cài đặt $LSPHP extension $php_extension_chon"
+	if [[ -f /usr/local/lsws/lsphp82/lib64/php/modules/ioncube_loader_lin_8.2.so ]];then
+		echo "Đã được cài đặt ioncube cho lsphp81 trước đó rồi"
+		. /etc/wptt/wptt-php-ini-main 1
+		exit
+	fi
+	wget -N https://downloads.ioncube.com/loader_downloads/ioncube_loaders_lin_x86-64.zip
+	unzip -o ioncube_loaders_lin_x86-64.zip
+	cd ioncube && chmod +x *.so && ls
+	cp ioncube_loader_lin_8.2.so /usr/local/lsws/lsphp82/lib64/php/modules
+	cd -
+	rm -rf ioncube
+	rm -f ioncube_loaders_lin_x86-64.zip
+	echo 'zend_extension = "/usr/local/lsws/lsphp82/lib64/php/modules/ioncube_loader_lin_8.2.so"' >> /usr/local/lsws/lsphp81/etc/php.ini
+	/usr/local/lsws/bin/lswsctrl restart >/dev/null 2>&1
+	_rundone "Cài đặt $LSPHP extension $php_extension_chon"
+	check_menu_wptangtoc_active=$1
+	if [[ $check_menu_wptangtoc_active = "98" ]];then
+		. /etc/wptt/wptt-php-ini-main 1
+	fi
+fi
+
+
+if [[ $php_extension_chon = 'ioncube' && $LSPHP = 'lsphp81' ]];then
+	_runing "Cài đặt $LSPHP extension $php_extension_chon"
+	if [[ -f /usr/local/lsws/lsphp81/lib64/php/modules/ioncube_loader_lin_8.1.so ]];then
+		echo "Đã được cài đặt ioncube cho lsphp81 trước đó rồi"
+		. /etc/wptt/wptt-php-ini-main 1
+		exit
+	fi
+	wget -N https://downloads.ioncube.com/loader_downloads/ioncube_loaders_lin_x86-64.zip
+	unzip -o ioncube_loaders_lin_x86-64.zip
+	cd ioncube && chmod +x *.so && ls
+	cp ioncube_loader_lin_8.1.so /usr/local/lsws/lsphp81/lib64/php/modules
+	cd -
+	rm -rf ioncube
+	rm -f ioncube_loaders_lin_x86-64.zip
+	echo 'zend_extension = "/usr/local/lsws/lsphp81/lib64/php/modules/ioncube_loader_lin_8.1.so"' >> /usr/local/lsws/lsphp81/etc/php.ini
+	/usr/local/lsws/bin/lswsctrl restart >/dev/null 2>&1
+	_rundone "Cài đặt $LSPHP extension $php_extension_chon"
+	check_menu_wptangtoc_active=$1
+	if [[ $check_menu_wptangtoc_active = "98" ]];then
+		. /etc/wptt/wptt-php-ini-main 1
+	fi
+fi
+
+
+
+
+
+if [[ $php_extension_chon = 'ioncube' && $LSPHP = 'lsphp74' ]];then
+	_runing "Cài đặt $LSPHP extension $php_extension_chon"
+	if [[ -f /usr/local/lsws/lsphp74/lib64/php/modules/ioncube_loader_lin_7.4.so ]];then
+		echo "Đã được cài đặt ioncube cho lsphp74 trước đó rồi"
+		. /etc/wptt/wptt-php-ini-main 1
+		exit
+	fi
+	wget -N https://downloads.ioncube.com/loader_downloads/ioncube_loaders_lin_x86-64.zip
+	unzip -o ioncube_loaders_lin_x86-64.zip
+	cd ioncube && chmod +x *.so && ls
+	cp ioncube_loader_lin_7.4.so /usr/local/lsws/lsphp74/lib64/php/modules
+	cd -
+	rm -rf ioncube
+	rm -f ioncube_loaders_lin_x86-64.zip
+	echo 'zend_extension = "/usr/local/lsws/lsphp74/lib64/php/modules/ioncube_loader_lin_7.4.so"' >> /usr/local/lsws/lsphp74/etc/php.ini
+	/usr/local/lsws/bin/lswsctrl restart >/dev/null 2>&1
+	_rundone "Cài đặt $LSPHP extension $php_extension_chon"
+	check_menu_wptangtoc_active=$1
+	if [[ $check_menu_wptangtoc_active = "98" ]];then
+		. /etc/wptt/wptt-php-ini-main 1
+	fi
+fi
+_runing "Cài đặt $LSPHP extension $php_extension_chon"
+yum install $LSPHP-$php_extension_chon -y >/dev/null 2>&1 --disablerepo="*" --enablerepo="litespeed"
+yum clean all >/dev/null 2>&1
+php_extension_check_lai=$(yum list installed --disablerepo="*" --enablerepo="litespeed" | grep $LSPHP | cut -f2-10 -d '-'  | cut -f1 -d '.' | sed '1d' | sed '/^$/d'|sort | uniq| grep -w "$php_extension_chon")
+if [[ $php_extension_check_lai ]];then
+	/usr/local/lsws/bin/lswsctrl restart >/dev/null 2>&1
+	_rundone "Cài đặt $LSPHP extension $php_extension_chon"
+else
+	_runloi "Cài đặt $LSPHP extension $php_extension_chon"
+fi
+
+if [[ $repo_du_phong = '1' ]];then
+	sed -i '/rpms.litespeedtech.com/d' /etc/hosts
+fi
+
+check_menu_wptangtoc_active=$1
+if [[ $check_menu_wptangtoc_active = "98" ]];then
+	. /etc/wptt/wptt-php-ini-main 1
+fi
+

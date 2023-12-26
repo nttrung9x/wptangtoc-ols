@@ -1,0 +1,34 @@
+#!/bin/bash
+echo "========================================================================="
+echo "|Quản lý bảo mật => CSF => Chặn IP                                      |"
+echo "========================================================================="
+. /etc/wptt/echo-color
+
+if [ ! -f /etc/csf/csf.conf ]; then
+	echoDo "Bạn chưa cài đặt CSF"
+	. /etc/wptt/wptt-bao-mat-main/csf-main 1
+fi
+
+read -r -p "Nhập địa chỉ IP bạn muốn Block [Thoát=0]: " ip
+if [[ $ip = '' || $ip = '0' ]];then
+. /etc/wptt/wptt-bao-mat-main/csf-main 1
+fi
+
+
+if ! [[ $ip =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+echoDo "Bạn nhập không đúng định dạng IPv4"
+. /etc/wptt/wptt-bao-mat-main/csf-main 1
+fi
+
+_runing "chặn Block IP $ip"
+csf -d "${ip}" >/dev/null 2>&1
+csf -x >/dev/null 2>&1
+csf -e >/dev/null 2>&1
+systemctl restart csf
+systemctl restart lfd
+_rundone "chặn Block IP $ip"
+
+check_menu_wptangtoc_active=$1
+if [[ $check_menu_wptangtoc_active = "98" ]];then
+. /etc/wptt/wptt-bao-mat-main/csf-main 1
+fi

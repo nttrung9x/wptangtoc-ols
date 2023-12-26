@@ -1,0 +1,115 @@
+#!/bin/bash
+# @author: Gia Tuấn
+# @website: https://wptangtoc.com
+# @email: giatuan@wptangtoc.com
+# @since: 2022
+clear
+echo ""
+echo ""
+echo ""
+echo "==================================================================================="
+echo "|Sao lưu & khôi phục => Thiết lập Rclone backup lưu trữ đám mây OneDrive   	|"
+echo "==================================================================================="
+echo ""
+echo ""
+
+. /etc/wptt-user/echo-color
+if [[ ! -d $HOME/.config ]];then
+mkdir -p $HOME/.config
+chmod 751 $HOME/.config
+fi
+
+check_rclone=$(which rclone)
+
+if [[ $check_rclone = '' ]];then
+echoDo "Bạn vui lòng sử dụng quyền root để cài đặt rclone thì mới có thể sử dụng được tính năng này"
+. /etc/wptt-user/wptt-backup-restore-main 1
+fi
+
+checkdathietlap=$(grep -rnw "$HOME/.config/rclone/rclone.conf" -e "wptangtoc" >>/dev/null 2>&1 && echo 2)
+
+if [[ $checkdathietlap ]]; then
+	clear
+	echo "Bạn đã cấu hình rclone trước đó rồi"
+	. /etc/wptt-user/wptt-backup-restore-main 1
+	exit
+fi
+
+# echo "Copy https://wptangtoc.com/xac-thuc-google-drive/ sau đó paste vào trình duyệt để đã đăng nhập tài khoản google để lấy id:"
+echo "==================================================================================="
+echo "Copy https://wptangtoc.com/xac-thuc-drive/ sau đó paste vào trình duyệt để được hướng dẫn lấy token:"
+echo ""
+echo 'gõ lệnh trên máy tính của bạn: rclone authorize "onedrive"'
+read -p "Nhập mã token Google Drive của bạn [0=Thoát]: " checkid
+
+
+if [[ "$checkid" = "0" ]]; then
+. /etc/wptt-user/wptt-backup-restore-main 1
+	clear
+	exit
+fi
+
+if [[ "$checkid" = "" ]]; then
+. /etc/wptt-user/wptt-backup-restore-main 1
+	clear
+	exit
+fi
+
+_runing "Thiết lập OneDrive"
+
+checkid=$(echo $checkid | sed 's/"/\\042/g')
+
+rm -rf ~/.config/rclone
+
+thietlap=$(expect -c "
+spawn rclone config
+expect \"n\"
+send \"n\r\"
+expect \"name\"
+send \"wptangtoc\r\"
+expect \"Storage\"
+send \"onedrive\r\"
+expect \"client_id\"
+send \"\r\"
+expect \"client_secret\"
+send \"\r\"
+expect \"region\"
+send \"1\r\"
+expect \"n\"
+send \"n\r\"
+expect \"n\"
+send \"n\r\"
+expect \"config_token\"
+send \"$checkid\r\"
+expect \"config_type\"
+send \"1\r\"
+expect \"config_driveid\"
+send \"1\r\"
+expect \"n\"
+send \"n\r\"
+expect \"y\"
+send \"y\r\"
+expect \"n\"
+send \"q\r\"
+expect eof
+")
+
+
+checkdathietlapxacthuc=$(grep -rnw "$HOME/.config/rclone/rclone.conf" -e "wptangtoc" >>/dev/null 2>&1 && echo 2)
+if [[ $checkdathietlapxacthuc ]]; then
+	check_tao_thu_muc=$(rclone lsd wptangtoc:| grep 'wptangtoc_ols_backup')
+	if [[ $check_tao_thu_muc = '' ]];then
+		#khởi tạo thư mục trên Cloud
+		rclone mkdir wptangtoc:wptangtoc_ols_backup
+	fi
+
+	_rundone "Thiết lập OneDrive"
+else
+	_runloi "Thiết lập OneDrive"
+fi
+
+check_menu_wptangtoc_active=$1
+if [[ $check_menu_wptangtoc_active = "98" ]];then
+. /etc/wptt-user/wptt-backup-restore-main 1
+fi
+

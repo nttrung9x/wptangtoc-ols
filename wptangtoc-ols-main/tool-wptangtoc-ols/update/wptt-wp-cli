@@ -1,0 +1,48 @@
+#!/bin/bash
+# @author: Gia Tuấn
+# @website: https://wptangtoc.com
+# @email: giatuan@wptangtoc.com
+# @since: 2022
+echo ""
+echo ""
+echo ""
+echo "========================================================================="
+echo "|Quản lý cập nhật Update => Cập nhật WP-CLI                             |"
+echo "========================================================================="
+echo ""
+echo ""
+
+if [[ ! $(which wp) ]];then
+	echo "Tiến hành cài đặt WP CLI"
+	curl -O https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar
+	chmod +x wp-cli.phar
+	mv wp-cli.phar /usr/local/bin/wp
+	if [[ ! $(which wp) ]];then
+		curl -O https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar
+		chmod +x wp-cli.phar
+		mv wp-cli.phar /usr/bin/wp
+	fi
+	if [[ $(which wp) ]];then
+		echo "Đã tiền hành cài đặt WP CLI thành công"
+	else
+		echo "Cài đặt WP CLI Thất bại"
+	fi
+	. /etc/wptt/wptt-update-main 1
+fi
+
+version=$(wp --info | grep 'WP-CLI version' | cut -f2 -d ':')
+echo "Phiên bản WP CLI hiện tại của bạn là: version $version"
+echo "Đang tiến hành cập nhật WP CLI vui lòng đợi..."
+wp cli update
+version2=$(wp --info | grep 'WP-CLI version' | cut -f2 -d ':')
+if [[ "$version" = "$version2" ]]; then
+	echo "Hiện tại bạn đã sử dụng phiên bản WP CLI mới nhất rồi"
+else
+	. /etc/wptt/echo-color
+    echoDone "Cập nhật thành công WP CLI lên phiên bản $version2"
+fi
+
+check_menu_wptangtoc_active=$1
+if [[ $check_menu_wptangtoc_active = "98" ]];then
+. /etc/wptt/wptt-update-main 1
+fi

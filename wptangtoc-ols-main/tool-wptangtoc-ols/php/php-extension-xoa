@@ -1,0 +1,109 @@
+#!/bin/bash
+# @author: Gia Tuấn
+# @website: https://wptangtoc.com
+# @since: 2023
+
+echo "Lựa chọn phiên bản PHP bạn muốn cài đặt thêm PHP extension:"
+. /etc/wptt/php/tenmien-php
+. /etc/wptt/echo-color
+
+if [[ "$LSPHP" = "0" ]];then
+. /etc/wptt/wptt-php-ini-main 1
+fi
+
+if [[ ! -d /usr/local/lsws/$LSPHP ]];then
+echoDo "Khong xac dinh duoc dir php"
+exit
+fi
+
+_runing "Tiến hành quét extension $LSPHP"
+
+#yum clean all để search cho update cập nhật
+yum clean all >/dev/null 2>&1
+
+php_extension_da_cai_dat=($(yum list installed --disablerepo="*" --enablerepo="litespeed" | grep $LSPHP | cut -f2-10 -d '-'  | cut -f1 -d '.' | sed '1d' | sed '/^$/d'|sort | uniq))
+php_extension=($(yum search lsphp --disablerepo="*" --enablerepo="litespeed" | grep $LSPHP | cut -f2-10 -d '-'  | cut -f1 -d '.' | sed '/^$/d'|sort | uniq ))
+
+
+
+#kiểm tra Repository litespeed nếu bị lỗi thay Repository dự phòng
+if [[ $php_extension = '' ]];then
+	sed -i '/rpms.litespeedtech.com/d' /etc/hosts
+	echo $'\n89.208.248.38 rpms.litespeedtech.com\n' >> /etc/hosts
+	yum clean all >/dev/null 2>&1
+	php_extension=''
+	php_extension=($(yum search lsphp --disablerepo="*" --enablerepo="litespeed" 2>/dev/null | grep $LSPHP | cut -f2-10 -d '-'  | cut -f1 -d '.' |sed '/^$/d' | sed "/$LSPHP/d" |sort | uniq ))
+	repo_du_phong=1
+fi
+
+if [[ $php_extension = '' ]];then
+_runloi "Tiến hành quét extension $LSPHP"
+	sed -i '/rpms.litespeedtech.com/d' /etc/hosts
+. /etc/wptt/wptt-php-ini-main 1
+fi
+
+
+
+if [[ -f /tmp/php_extension.txt ]];then
+rm -f /tmp/php_extension.txt
+fi
+
+for phpexe in $php_extension_da_cai_dat;do
+echo "$phpexe" >> /tmp/php_extension.txt
+done
+
+_rundone "Tiến hành quét extension $LSPHP"
+
+selects=()
+for entry in $(cat /tmp/php_extension.txt); do
+	selects+=("$entry")
+done
+
+PS3="
+-//- Nhập lựa chọn của bạn [0=Thoát]: "
+select select in ${selects[@]}; do
+	php_extension_chon=$select
+	break
+done
+
+
+if [[ $php_extension_chon = "0" ]];then
+. /etc/wptt/wptt-php-ini-main 1
+fi
+
+
+if [[ $php_extension_chon = "" ]];then
+echoDo "Bạn chưa lựa chọn extension PHP"
+. /etc/wptt/wptt-php-ini-main 1
+exit
+fi
+
+
+_runing "Xóa $LSPHP extension $php_extension_chon"
+if [[ $php_extension_chon = 'ioncube' ]];then
+	#chuyen đổi từ lsphp74 thành PHP 7.4
+	LSPHP_version=$(echo $LSPHP| grep -Eo '[0-9]{1,2}' | head -1 | perl -pe 's/(\d{1})(?=(?:\d{1}){1,5}\b)/\1./g')
+	rm -f /usr/local/lsws/$LSPHP/lib64/php/modules/ioncube_loader_lin_${LSPHP_version}.so
+	sed -i '/ioncube_loader_lin/d' /usr/local/lsws/$LSPHP/etc/php.ini
+fi
+yum remove $LSPHP-$php_extension_chon -y >/dev/null 2>&1 --disablerepo="*" --enablerepo="litespeed"
+
+php_extension_check_lai=$(yum list installed --disablerepo="*" --enablerepo="litespeed"| grep $LSPHP | cut -f2-10 -d '-'  | cut -f1 -d '.' | sed '1d' | sed '/^$/d'|sort | uniq| grep -w "$php_extension_chon")
+if [[ $php_extension_check_lai ]];then
+_runloi "Xóa $LSPHP extension $php_extension_chon"
+else
+/usr/local/lsws/bin/lswsctrl restart >/dev/null 2>&1
+_rundone "Xóa $LSPHP extension $php_extension_chon"
+fi
+
+
+if [[ $repo_du_phong = '1' ]];then
+	sed -i '/rpms.litespeedtech.com/d' /etc/hosts
+fi
+
+
+check_menu_wptangtoc_active=$1
+if [[ $check_menu_wptangtoc_active = "98" ]];then
+. /etc/wptt/wptt-php-ini-main 1
+fi
+

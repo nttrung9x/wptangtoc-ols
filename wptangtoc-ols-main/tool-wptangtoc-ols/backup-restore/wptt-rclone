@@ -1,0 +1,201 @@
+#!/bin/bash
+# @author: Gia Tuấn
+# @website: https://wptangtoc.com
+# @email: giatuan@wptangtoc.com
+# @since: 2022
+clear
+echo ""
+echo ""
+echo ""
+echo "==================================================================================="
+echo "|Sao lưu & khôi phục => Thiết lập Rclone backup lưu trữ đám mây Google Drive 	|"
+echo "==================================================================================="
+echo ""
+echo ""
+
+. /etc/wptt/echo-color
+if [[ ! -d /root/.config ]];then
+mkdir -p /root/.config
+chmod 751 /root/.config
+fi
+
+
+duong_dan_rclone="/root/.config/rclone/rclone.conf"
+if [[ -f $duong_dan_rclone ]];then
+	if [[ $(cat ~/.config/rclone/rclone.conf | grep 'onedrive') ]];then
+echo "Bạn đã thiết lập kết nối OneDrive trước đó rồi"
+else
+echo "Bạn đã thiết lập kết Google Drive trước đó rồi"
+	fi
+. /etc/wptt/wptt-backup-restore-main 1
+fi
+
+if [[ ! -f $duong_dan_rclone ]]; then
+	_runing "Cài đặt Rclone"
+	echo ''
+	echo '               .::------------:--                
+               -==-------------=##+               
+              -====-----------+####*.             
+            .=======---------+######*.            
+           .=========-------*#########:           
+          .============----*###########-          
+         :==============--*#############-         
+        :===============-+###############=        
+       -===============:  =###############+       
+      -===============:    =###############+      
+     -===============:      -###############*.    
+   .================.        :###############*.   
+  .================.          :################:  
+ .===============-.            .*###############: 
+:===============-                +###############-
+----------------:................:+***************
+:--------------==================================:
+ :------------==================================: 
+  .----------==================================:  
+   .-------===================================:   
+    .-----===================================.    
+      :--===================================.     
+       .-================================-:       
+'
+	cd /tmp
+	rm -f install.sh
+	curl -sO https://rclone.org/install.sh && bash install.sh
+	rm -f install.sh
+phienban=1.60.0
+# wget https://downloads.rclone.org/v${phienban}/rclone-v${phienban}-linux-amd64.zip --no-check-certificate
+
+wget https://github.com/rclone/rclone/releases/download/v${phienban}/rclone-v${phienban}-linux-amd64.zip --no-check-certificate
+
+unzip -o rclone-v${phienban}-linux-amd64.zip
+cd rclone-v${phienban}-linux-amd64
+cp -r rclone /usr/sbin/
+chmod 755 /usr/sbin/rclone
+	_rundone "Cài đặt Rclone"
+fi
+
+rm -rf /tmp/rclone-v${phienban}-linux-amd64.zip
+
+checkdathietlap=$(grep -rnw '/root/.config/rclone/rclone.conf' -e "wptangtoc" >>/dev/null 2>&1 && echo 2)
+if [[ $checkdathietlap ]]; then
+	clear
+	echo "Bạn đã cấu hình rclone trước đó rồi"
+	. /etc/wptt/wptt-backup-restore-main 1
+	exit
+fi
+
+
+echo "==================================================================================="
+echo "Copy https://wptangtoc.com/xac-thuc-drive/ sau đó paste vào trình duyệt để được hướng dẫn lấy token:"
+#link được rút ngon bên trên
+# https://accounts.google.com/o/oauth2/auth?access_type=offline&client_id=202264815644.apps.googleusercontent.com&redirect_uri=urn%3Aietf%3Awg%3Aoauth%3A2.0%3Aoob&response_type=code&scope=https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fdrive&state=YG0NAAApdaOSGLL5PoCXqA
+echo ''
+echo 'gõ lệnh trên máy tính của bạn: rclone authorize "drive" "eyJzY29wZSI6ImRyaXZlIn0"'
+
+read -p "Nhập mã token Google Drive của bạn [0=Thoát]: " checkid
+
+if [[ "$checkid" = "0" ]]; then
+. /etc/wptt/wptt-backup-restore-main 1
+	clear
+	exit
+fi
+
+if [[ "$checkid" = "" ]]; then
+. /etc/wptt/wptt-backup-restore-main 1
+	clear
+	exit
+fi
+
+_runing "Thiết lập Google Drive"
+checktool="/usr/bin/expect"
+if [[ ! -f $checktool ]]; then
+	yum install expect -y >/dev/null 2>&1
+fi
+
+# thietlap=$(expect -c "
+# spawn rclone config
+# expect \"n\"
+# send \"n\r\"
+# expect \"name\"
+# send \"wptangtoc\r\"
+# expect \"Storage\"
+# send \"drive\r\"
+# expect \"client_id\"
+# send \"\r\"
+# expect \"client_secret\"
+# send \"\r\"
+# expect \"scope\"
+# send \"1\r\"
+# expect \"root_folder_id\"
+# send \"\r\"
+# expect \"service_account_file\"
+# send \"\r\"
+# expect \"n\"
+# send \"n\r\"
+# expect \"n\"
+# send \"n\r\"
+# expect \"verification\"
+# send \"$checkid\r\"
+# expect \"n\"
+# send \"n\r\"
+# expect \"n\"
+# send \"y\r\"
+# expect eof
+# ")
+
+
+thietlap=$(expect -c "
+spawn rclone config
+expect \"n\"
+send \"n\r\"
+expect \"name\"
+send \"wptangtoc\r\"
+expect \"Storage\"
+send \"drive\r\"
+expect \"client_id\"
+send \"\r\"
+expect \"client_secret\"
+send \"\r\"
+expect \"scope\"
+send \"1\r\"
+expect \"service_account_file\"
+send \"\r\"
+expect \"n\"
+send \"n\r\"
+expect \"n\"
+send \"n\r\"
+expect \"config_token\"
+send \"$checkid\r\"
+expect \"n\"
+send \"n\r\"
+expect \"n\"
+send \"y\r\"
+expect \"n\"
+send \"q\r\"
+expect eof
+")
+
+
+checkdathietlapxacthuc=$(grep -rnw '/root/.config/rclone/rclone.conf' -e "wptangtoc" >>/dev/null 2>&1 && echo 2)
+if [[ $checkdathietlapxacthuc ]]; then
+	check_tao_thu_muc=$(rclone lsd wptangtoc:| grep 'wptangtoc_ols_backup')
+	if [[ $check_tao_thu_muc = '' ]];then
+		#khởi tạo thư mục trên Cloud
+		rclone mkdir wptangtoc:wptangtoc_ols_backup
+	fi
+
+	_rundone "Thiết lập Google Drive"
+
+	if [[ $(ls /etc/cron.d | grep '^backup') ]];then
+echo "WPTangToc OLS có hỗ trợ tự động backup website uploads lên Google Drive"
+echo "Nếu bạn muốn sử dụng tính năng đó thì hãy thiết lại tự động backup website"
+	fi
+
+else
+	_runloi "Thiết lập Google Drive"
+fi
+
+check_menu_wptangtoc_active=$1
+if [[ $check_menu_wptangtoc_active = "98" ]];then
+. /etc/wptt/wptt-backup-restore-main 1
+fi
+

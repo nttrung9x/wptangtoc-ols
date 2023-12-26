@@ -1,0 +1,56 @@
+#!/bin/bash
+echo ""
+echo ""
+echo ""
+echo "========================================================================="
+echo "|Chuyen website ALL ve WPTangToc OLS						                  |"
+echo "========================================================================="
+echo "Luu y: tinh nay nay chi ho tro tren he thong cung hoat dong voi WPTangToc OLS voi nhau"
+echo "Yeu cau webserver cu cua ban phai co ho tro terminal"
+echo "dan paste doan lenh nay vao terminal webserver cu cua ban: "
+echo "Lenh: curl -sO https://wptangtoc.com/share/wptt-all && bash wptt-all"
+echo ""
+read -p "Xac nhan da hoan tat chay lenh tren hoan tat sao luu du lieu ben webserver cu va tiep tuc chay lenh (y/n): " dongy
+
+. /etc/wptt/.wptt.conf
+
+read -p "Nhap ten domain vps cu website chinh: " domain_download_list
+cd
+rm -f danh-sach-website-wptangtoc-ols.txt
+wget http://$domain_download_list/danh-sach-website-wptangtoc-ols.txt --no-check-certificate
+
+if [[ ! -f danh-sach-website-wptangtoc-ols.txt ]];then
+echo "Xac nhan khong nhap vps chinh cu khong chinh xac"
+return 2>/dev/null ; exit
+fi
+
+domain_them=($(cat danh-sach-website-wptangtoc-ols.txt))
+
+domain_trung_lap=($(ls -A /etc/wptt/vhost | sed 's/^.//' | sed 's/.conf//'))
+
+  echo '--------------------------------------------------'
+  for NAME in ${domain_them[@]}; do
+	  echo "Tien hanh chuyen website $NAME"
+	  sleep 3
+	if [[ ! "${domain_trung_lap[@]}" =~ "${NAME}" ]];then
+		echo "Them domain $NAME vao WPTangToc OLS"
+		. /etc/wptt/domain/wptt-themwebsite $NAME
+	fi
+		. /etc/wptt/chuyen-web/wptt-chuyen-website $NAME 1
+		echo "Chuyen Hoan tat website $NAME"
+  done
+  echo '--------------------------------------------------'
+
+cd && rm -f danh-sach-website-wptangtoc-ols.txt
+  for NAME in ${domain_them[@]}; do
+	  rm -f /usr/local/lsws/$NAME/html/danh-sach-website-wptangtoc-ols.txt
+	  rm -f /usr/local/lsws/$NAME/html/wptt-all
+  done
+  echo '--------------------------------------------------'
+. /etc/wptt/domain/wptt-list-domain
+echo "Hoan tat chuyen toan bo website vao vps moi"
+ip=$(curl -s myip.directadmin.com)
+if [[ "$ip" = "" ]]; then
+  ip=$(curl -s ifconfig.me)
+fi
+echo "Hay tro ip cac website ve IP: $ip va tien hanh cai dat ssl de su dung"

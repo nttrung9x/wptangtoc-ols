@@ -1,0 +1,107 @@
+#!/bin/bash
+
+. /etc/wptt/echo-color
+
+NAME=$1
+if [[ $NAME = "98" ]];then
+NAME=""
+fi
+
+if [[ "$NAME" = "" ]]; then
+    . /etc/wptt/tenmien
+    echo ""
+    echo ""
+	echo "Lựa chọn website muốn chuyển đổi .htaccess sang vhosts:"
+    echo ""
+    lua_chon_NAME
+fi
+
+if [[ $NAME = "0" || $NAME = '' ]];then
+return 2>/dev/null ; exit
+fi
+
+path="/etc/wptt/vhost/.$NAME.conf"
+if [[ ! -f "$path" ]]; then
+    clear
+    echoDo "Domain không tồn tại trên VPS."
+return 2>/dev/null ; exit
+fi
+
+
+pathcheckwp="/usr/local/lsws/$NAME/html/wp-load.php"
+if [[ ! -f "$pathcheckwp" ]]; then
+  clear
+  echoDo "Hệ thống xác nhận bạn không sử dụng mã nguồn WordPress"
+  sleep 3
+return 2>/dev/null ; exit
+fi
+
+#kiểm tra .htaccess
+if [[ ! -f /usr/local/lsws/$NAME/html/.htaccess ]];then
+echoDo "Không xác định được .htaccess của website $NAME"
+return 2>/dev/null ; exit
+fi
+
+#sed-multiline-delete-with-pattern
+#tự động xác định tìm block rewrite xóa theo block {}
+# sed -i '/^rewrite/{:a;N;/}$/!ba};/enable/d' /usr/local/lsws/conf/vhosts/$NAME.conf
+sed -i -e '/^rewrite/,/^}$/d' /usr/local/lsws/conf/vhosts/$NAME/$NAME.conf
+
+#thiết lập tắt tự động chạy file .htaccess:
+
+_runing "Thiết lập chuyển htaccess sang vhosts"
+echo "
+rewrite  {
+  enable                  1
+  autoLoadHtaccess        0
+}" >> /usr/local/lsws/conf/vhosts/$NAME/$NAME.conf
+
+
+# sed -i '/^context/{:a;N;/}$/!ba};/enable/d' /usr/local/lsws/conf/vhosts/$NAME.conf
+
+#xác định context
+# context=$(cat /usr/local/lsws/conf/vhosts/$NAME.conf | sed -e '/^context/,/^}/!d')
+
+
+# xóa context hiện tại:
+sed -i -e '/^context \/ {/,/^}$/d' /usr/local/lsws/conf/vhosts/$NAME/$NAME.conf
+
+
+#xác định các code đã được add vào sử dụng tại .htaccess
+lenh_htaccess=$(cat /usr/local/lsws/$NAME/html/.htaccess)
+echo "
+context / {
+  location                /usr/local/lsws/$NAME/html
+  allowBrowse             1
+  extraHeaders            <<<END_extraHeaders
+X-XSS-Protection 1;mode=block
+X-Frame-Options SAMEORIGIN
+Referrer-Policy strict-origin-when-cross-origin
+X-Content-Type-Options nosniff
+X-Powered-By WPTangTocOLS
+permissions-policy accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()
+  END_extraHeaders
+
+
+  rewrite  {
+      enable                1
+	  inherit               1
+$lenh_htaccess
+  }
+  addDefaultCharset       off
+
+  phpIniOverride  {
+
+  }
+}
+" >> /usr/local/lsws/conf/vhosts/$NAME/$NAME.conf
+
+chown -R lsadm:nobody /usr/local/lsws/conf/vhosts/$NAME
+chmod -R 750 /usr/local/lsws/conf/vhosts/$NAME
+
+/usr/local/lsws/bin/lswsctrl restart >/dev/null 2>&1
+
+sed -i '/vhost_chuyen_htaccess/d' /etc/wptt/vhost/.$NAME.conf
+echo 'vhost_chuyen_htaccess=1' >> /etc/wptt/vhost/.$NAME.conf
+_rundone "Thiết lập chuyển htaccess sang vhosts"
+

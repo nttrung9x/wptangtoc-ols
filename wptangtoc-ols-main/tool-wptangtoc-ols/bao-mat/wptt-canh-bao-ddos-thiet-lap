@@ -1,0 +1,176 @@
+#!/bin/bash
+. /etc/wptt/.wptt.conf
+echo "/-----------------------------------------------------------------------/"
+echo "Bảo mật => Chống ddos website"
+echo "/-----------------------------------------------------------------------/"
+
+
+NAME=$1
+if [[ $NAME = "98" ]];then
+	NAME=""
+fi
+
+. /etc/wptt/echo-color
+
+if [[ $NAME = '' ]];then
+if [ "$(ls -A /etc/wptt/vhost)" ]; then
+    echo "========================================================================="
+    echo "Danh sách Domain đã kích hoạt chống ddos:"
+    echo "========================================================================="
+    for entry in $(ls -A /etc/wptt/vhost); do
+        domain=$(echo $entry | sed 's/^.//' | sed 's/.conf//')
+        domain2=${domain//[-._]/wp}
+        path="/etc/fail2ban/filter.d/ddos-$domain2.conf"
+        i=1
+        if [[ -f "$path" ]]; then
+            checkauto="Đã kích hoạt"
+        else
+            checkauto="Chưa kích hoạt"
+        fi
+        echo "Website $domain $checkauto chống ddos"
+    done
+    echo "========================================================================="
+    echo
+fi
+
+echo ""
+echo ""
+echo "Lựa chọn website kích hoạt chống ddos website: "
+echo ""
+function lua_chon_NAME() {
+    NAME=""
+    if [ "$(ls -At /etc/wptt/vhost)" ]; then
+        selects=()
+        for entry in $(ls -A /etc/wptt/vhost); do
+            NAME=$(echo $entry | sed 's/^.//' | sed 's/.conf//')
+            NAME2=${NAME//[-._]/wp}
+            if [[ ! -f /etc/fail2ban/filter.d/ddos-$NAME2.conf ]]; then
+                selects+=("$NAME")
+            fi
+        done
+
+if [[ $selects = '' ]];then
+echo "Tất cả website WordPress trên hệ thống đã được kích hoạt chống DDOS hết rồi"
+. /etc/wptt/wptt-bao-mat-main 1
+fi
+
+		#check tổng số website, nếu 2 website trở lên thì sẽ tự động có tính năng tất cả
+		a=0
+		for select in ${selects[@]};do
+			a=$(expr $a + 1)
+		done
+
+		if [[ $a != 1 ]];then
+			selects+=("Tat-ca-website")
+		fi
+
+
+        PS3="
+-//- Nhập lựa chọn website của bạn [0=Thoát]: "
+        select select in ${selects[@]}; do
+            NAME=$select
+            index=$REPLY
+            break
+        done
+    else
+        clear
+        echo "Khong co domain tren he thong cua ban."
+        exit
+    fi
+}
+
+lua_chon_NAME
+fi
+
+if [[ $NAME = 'Tat-ca-website' ]];then
+	if [ "$(ls -A /etc/wptt/vhost)" ]; then
+		for entry in $(ls -A /etc/wptt/vhost); do
+			domain=$(echo $entry | sed 's/^.//' | sed 's/.conf//')
+			domain2=${domain//[-._]/wp}
+			if [[ ! -f /etc/fail2ban/filter.d/ddos-$domain2.conf ]]; then
+				_runing "Thiết lập chống ddos website $domain"
+				. /etc/wptt/bao-mat/wptt-canh-bao-ddos-thiet-lap $domain >/dev/null 2>&1
+				_rundone "Thiết lập chống ddos website $domain"
+			fi
+		done
+	fi
+
+	check_menu_wptangtoc_active=$1
+	if [[ $check_menu_wptangtoc_active = "98" ]];then
+		. /etc/wptt/wptt-menu-logs 1
+	fi
+	exit
+fi
+
+
+if [[ $NAME = '0' || $NAME = '' ]];then
+. /etc/wptt/wptt-bao-mat-main 1
+exit
+fi
+
+. /etc/wptt/echo-color
+
+NAME2=${NAME//[-._]/wp}
+
+read -p "Bạn có muốn bật tính năng chống ddos website? (y/n): " dongy
+
+    if [[ "$dongy" = "y" ]]; then
+		_runing "Thiết lập chống ddos cho website $NAME"
+if [[ ! $(cat /usr/local/lsws/conf/vhosts/"$NAME"/"$NAME".conf| grep 'accesslog') ]]; then
+sed -i -e '/^errorlog /,/^}$/d' /usr/local/lsws/conf/vhosts/"$NAME"/"$NAME".conf
+sed -i -e '/^accesslog /,/^}$/d' /usr/local/lsws/conf/vhosts/"$NAME"/"$NAME".conf
+echo '
+errorlog $VH_ROOT/logs/error.log {
+  useServer               1
+  logLevel                ERROR
+  rollingSize             10M
+}
+
+accesslog $VH_ROOT/logs/access.log {
+  useServer               0
+  rollingSize             10M
+  keepDays                30
+  compressArchive         1
+}' >>/usr/local/lsws/conf/vhosts/"$NAME"/"$NAME".conf
+fi
+
+mkdir -p /usr/local/lsws/"$NAME"/logs
+chown -R nobody:nobody /usr/local/lsws/"$NAME"/logs
+chmod 700 /usr/local/lsws/"$NAME"/logs
+
+echo '#begin-ddos-website-'$NAME2'
+[ddos-'$NAME2']
+enabled = true
+action = iptables-multiport[name=ReqLimit, port="http,https", protocol=tcp]
+port = http,https
+filter = ddos-'$NAME2'
+logpath = /usr/local/lsws/'$NAME'/logs/access.log
+bantime = 7200
+maxretry = 20
+findtime = 30
+#end-ddos-website-'$NAME2'' >>/etc/fail2ban/jail.local
+
+sed -i "s/banaction = iptables-multiport/banaction = firewallcmd-ipset/g" /etc/fail2ban/jail.local
+
+#kiểm tra log get html, sẽ loại bỏ những file static
+echo '[Definition]
+failregex = ^<HOST> -.*"(GET|POST).*
+ignoreregex =.*(robots.txt|favicon.ico|jpg|png|webp|css|js|jpeg|woff2|avif|gif)' >>/etc/fail2ban/filter.d/ddos-$NAME2.conf
+#loai bo static và có thể giảm maxretry xuống thấp hơn nhiều khoảng 20 trống ddos theo dạng dynamic hmtl file
+
+# echo '[Definition]
+# failregex = ^<HOST> -.*"(GET|POST).*
+# ignoreregex = ^<HOST> .* "GET /wp-content/.* HTTP.* 200' >>/etc/fail2ban/filter.d/ddos-$NAME2.conf
+
+fail2ban-client reload >/dev/null 2>&1
+systemctl restart fail2ban
+/usr/local/lsws/bin/lswsctrl restart >/dev/null 2>&1
+_rundone "Thiết lập chống ddos cho website $NAME"
+echo "Nếu trong 30 giây mà yêu cầu 20 yêu cầu (html document) thì IP sẽ bị khóa trong 2 tiếng"
+	fi
+
+	check_menu_wptangtoc_active=$1
+if [[ $check_menu_wptangtoc_active = "98" ]];then
+. /etc/wptt/wptt-bao-mat-main 1
+fi
+

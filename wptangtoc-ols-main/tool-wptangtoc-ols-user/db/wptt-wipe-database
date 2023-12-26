@@ -1,0 +1,34 @@
+#!/bin/bash
+echo ""
+echo ""
+echo ""
+echo "========================================================================="
+echo "|Quản lý Database => Xóa toàn bộ dữ liệu database                       |"
+echo "========================================================================="
+NAME=$1
+if [[ $NAME = '98' ]];then
+NAME=''
+fi
+
+if [[ $NAME = '' ]];then
+. /etc/wptt-user/tenmien
+lua_chon_NAME
+fi
+
+. /etc/wptt-user/echo-color
+if [[ "$NAME" = "0" || "$NAME" = "" ]]; then
+    . /etc/wptt-user/wptt-db-main 1
+fi
+
+_runing "Xóa toàn bộ dữ liệu database của website $NAME"
+. /etc/wptt/vhost/."$NAME".conf
+mysql -u "$DB_User_web" -p"$DB_Password_web" -e "DROP DATABASE IF EXISTS ${DB_Name_web}"
+mysql -u "$DB_User_web" -p"$DB_Password_web" -e "CREATE DATABASE IF NOT EXISTS ${DB_Name_web}"
+
+_rundone "Xóa toàn bộ dữ liệu database của website $NAME"
+
+check_menu_wptangtoc_active=$1
+if [[ $check_menu_wptangtoc_active = "98" ]];then
+. /etc/wptt-user/wptt-db-main 1
+fi
+

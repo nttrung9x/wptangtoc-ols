@@ -1,0 +1,8 @@
+#!/bin/bash
+function lua_chon_NAME() {
+NAME=$(pwd | cut -f5 -d '/')
+if [[ $NAME = '' ]];then
+echo 'Không xác định được domain'
+exit
+fi
+}

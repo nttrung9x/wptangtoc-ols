@@ -1,0 +1,393 @@
+#!/bin/bash
+
+NAME=$1
+doi_so=$1
+
+if [[ $doi_so = '98' ]];then
+doi_so=''
+fi
+
+if [[ $NAME = '98' ]];then
+NAME=''
+fi
+
+if [[ $NAME = '' ]];then
+echo ""
+echo ""
+echo ""
+echo "========================================================================="
+echo "|Quản lý Domain => Xóa Website                                          |"
+echo "========================================================================="
+echo ""
+echo ""
+. /etc/wptt/tenmien
+echo "Lựa chọn website bạn muốn xóa:"
+echo ""
+lua_chon_NAME
+
+fi
+
+path="/etc/wptt/vhost/.$NAME.conf"
+
+
+if [[ "$NAME" = "0" || "$NAME" = "" ]]; then
+	. /etc/wptt/wptt-domain-main 1
+fi
+
+pathcheck="/etc/wptt/vhost/.$NAME.conf"
+if [[ ! -f "$pathcheck" ]]; then
+	clear
+	. /etc/wptt/echo-color
+	echoDo "Tên miền không tồn tại trên hệ thống này"
+	sleep 2
+	. /etc/wptt/wptt-domain-main 1
+	exit
+fi
+
+
+. /etc/wptt/vhost/."$NAME".conf
+. /etc/wptt/.wptt.conf
+. /etc/wptt/echo-color
+
+CLEAN="$NAME"
+
+if [[ $doi_so = '' ]];then
+echo "Xác nhận xóa website $CLEAN?: "
+prompt="Nhập lựa chọn của bạn [1-2]: "
+dongy="n"
+options=("Đồng ý" "Không đồng ý")
+PS3="$prompt"
+select opt in "${options[@]}"; do
+	case "$REPLY" in
+		1)
+			dongy="y"
+			break
+			;;
+
+		2)
+			dongy="n"
+			break
+			;;
+
+		$((${#options[@]} + 1)))
+			printf "\nBạn nhập sai hệ thống sẽ chọn là không đồng ý\n"
+			break
+			;;
+		*)
+			printf "Bạn nhập sai hệ thống sẽ chọn là không đồng ý\n"
+			break
+			;;
+	esac
+done
+else
+dongy='y'
+fi
+
+if [[ "$dongy" = "y" ]]; then
+
+	if [[ "$NAME" = "$Website_chinh" ]]; then
+		echo ""
+		echo ""
+		echo "$NAME là website chính đại diện cho websever của bạn hãy lựa chọn domain khac để thay thế làm website chính:"
+		echo "lựa chọn domain chính khác: "
+		echo ""
+		NAME3="$NAME"
+		echo "Ghi chú: Chon 1 domain khác đã được kích hoạt SSL"
+		echo ""
+		mkdir -p /etc/wptt/vhost2
+		if [ "$(ls -A /etc/wptt/vhost)" ]; then
+			for entry in $(ls -A /etc/wptt/vhost); do
+				domain=$(echo $entry | sed 's/^.//' | sed 's/.conf//')
+				path="/usr/local/lsws/$domain/html"
+				i=1
+
+				if [[ -d "$path" ]]; then
+					cp -f /etc/wptt/vhost/."$domain".conf /etc/wptt/vhost2
+				fi
+			done
+		fi
+
+		rm -f /etc/wptt/vhost2/."$Website_chinh".conf
+
+		#check điều kiện số lượng website, nếu website chỉ có 1 domain là domain chính thì sẽ báo lỗi
+		check_so_luong_website=$(ls -A /etc/wptt/vhost2 | wc -l)
+		if [[ $check_so_luong_website = '0' ]];then
+			echoDo "Bạn không thể xoá website khi hệ thống chỉ có 1 domain duy nhất là domain chính"
+			echoDo "Nếu bạn muốn xoá website thì vui lòng thêm 1 website vào rồi hãy xoá website này đi"
+			rm -rf /etc/wptt/vhost2
+			check_menu_wptangtoc_active=$1
+			if [[ $check_menu_wptangtoc_active = "98" ]];then
+				. /etc/wptt/wptt-domain-main 1
+			fi
+			return 2>/dev/null;exit
+		fi
+
+
+		function lua_chon_NAME_vhost2() {
+			NAME=""
+			if [ "$(ls -At /etc/wptt/vhost2)" ]; then
+				selects=()
+				for entry in $(ls -A /etc/wptt/vhost2); do
+					NAME=$(echo $entry | sed 's/^.//' | sed 's/.conf//')
+					if [ "$NAME" != "${NAME/./}" ]; then
+						selects+=("$NAME")
+					fi
+				done
+
+				if [[ $selects = '' ]];then
+					echoDo "Không thể xóa website chính khi không có website khác thay thế làm website đại diện"
+					echo "Vui lòng thêm website một website khác rồi xóa website $Website_chinh, rồi ủy đại diện cho website mới đó"
+					. /etc/wptt/wptt-domain-main 1
+				fi
+
+				PS3="
+-//- Nhập lựa chọn website của bạn [0=Thoát]: "
+				select select in ${selects[@]}; do
+					NAME=$select
+					index=$REPLY
+					break
+				done
+			else
+				clear
+				echo "Khong co domain nao ton tai tren he thong cua ban."
+				exit
+			fi
+		}
+	lua_chon_NAME_vhost2
+	NAMEPHU="$NAME"
+	if [[ "$NAMEPHU" = "$Website_chinh" ]]; then
+		echoDo "Thong bao loi"
+		echoDo "Trung lap website chinh va website thay the chinh: $NAME3"
+		echo ""
+		echo ""
+		echo "Vui long xoa lai website"
+		. /etc/wptt/wptt-domain-main 1
+		exit
+	fi
+	if [[ "$NAMEPHU" = "0" || "$NAMEPHU" = "" ]]; then
+		. /etc/wptt/wptt-domain-main 1
+		exit
+	fi
+
+	_runing "Chuyển đổi website chính từ $CLEAN thành $NAMEPHU"
+	sed -i "/keyFile/d" /usr/local/lsws/conf/httpd_config.conf
+	sed -i "/certFile/d" /usr/local/lsws/conf/httpd_config.conf
+	sed -i "/CACertFile/d" /usr/local/lsws/conf/httpd_config.conf
+	sed -i "/https/a keyFile              \/etc\/letsencrypt\/live\/$NAMEPHU\/privkey.pem" /usr/local/lsws/conf/httpd_config.conf
+	sed -i "/https/a certFile             \/etc\/letsencrypt\/live\/$NAMEPHU\/cert.pem" /usr/local/lsws/conf/httpd_config.conf
+	sed -i "/https/a CACertFile           \/etc\/letsencrypt\/live\/$NAMEPHU\/chain.pem" /usr/local/lsws/conf/httpd_config.conf
+	/usr/local/lsws/bin/lswsctrl restart >/dev/null 2>&1
+	sed -i "/$Website_chinh/d" /etc/wptt/.wptt.conf
+	echo "Website_chinh=$NAMEPHU" >>/etc/wptt/.wptt.conf
+	rm -rf /etc/wptt/vhost2
+	if [[ $id_dang_nhap_phpmyadmin ]]; then
+		cp -rf /usr/local/lsws/"$CLEAN"/html/phpmyadmin /usr/local/lsws/"$NAMEPHU"/html/
+		mkdir -p /usr/local/lsws/"$NAMEPHU"/passwd
+		cp -f /usr/local/lsws/"$Website_chinh"/passwd/.phpmyadmin /usr/local/lsws/"$NAMEPHU"/passwd
+		chown -R nobody:nobody /usr/local/lsws/"$NAMEPHU"/passwd
+		echo 'realm '${NAMEPHU}phpphpmyadmin' {
+		userDB  {
+		location              /usr/local/lsws/'$NAMEPHU'/passwd/.phpmyadmin
+	}
+}
+context /phpmyadmin/ {
+location                phpmyadmin/
+allowBrowse             1
+realm                   '${NAMEPHU}phpphpmyadmin'
+
+accessControl  {
+allow                 ALL
+}
+
+rewrite  {
+
+}
+addDefaultCharset	  off
+
+phpIniOverride  {
+
+}
+}' >>/usr/local/lsws/conf/vhosts/"$NAMEPHU"/"$NAMEPHU".conf
+
+	fi
+	_rundone "Chuyển đổi website chính từ $CLEAN thành $NAMEPHU"
+	fi
+
+		#xóa database website
+		_runing "Xóa toàn bộ database website $CLEAN"
+		mysql -u $database_admin_username -p"$database_admin_password" -e "DROP DATABASE ${DB_Name_web}"
+		mysql -u $database_admin_username -p"$database_admin_password" -e "DROP USER '${DB_User_web}'@'localhost'"
+
+		#tiến hành xóa database của subfolder website
+		if [[ $subfolder_su_dung ]];then
+			if [[ -d /etc/wptt/$CLEAN-wptt ]];then
+				query_sub=($(ls -At /etc/wptt/$CLEAN-wptt))
+				for subfolder in ${query_sub[@]};do
+					. /etc/wptt/$CLEAN-wptt/$subfolder
+					mysql -u $database_admin_username -p"$database_admin_password" -e "DROP DATABASE ${DB_Name_web}"
+				done
+			fi
+
+			rm -rf /etc/wptt/$CLEAN-wptt/$subfolder
+			# trả lại biến website chính
+			. /etc/wptt/vhost/."$CLEAN".conf
+		fi
+
+		_rundone "Xóa toàn bộ database website $CLEAN"
+		_runing "Xóa toàn bộ website $CLEAN ra hệ thống webserver"
+		rm -rf /usr/local/lsws/conf/vhosts/"$CLEAN"
+		if [[ $User_name_vhost ]];then
+			pkill -u $User_name_vhost >/dev/null 2>&1
+			usermod -R wptangtoc-ols "$User_name_vhost" >/dev/null 2>&1
+			userdel -f "$User_name_vhost" >/dev/null 2>&1
+			if [[ -d /home/$User_name_vhost ]];then
+				rm -rf /home/$User_name_vhost
+			fi
+		fi
+
+		rm -rf /wptangtoc-ols/"$CLEAN"
+		rm -rf /usr/local/lsws/"$CLEAN"
+		rm -rf /home/"$CLEAN"
+
+	#xóa maps cổng port
+	sed -i "/$CLEAN $CLEAN/d" /usr/local/lsws/conf/httpd_config.conf
+
+	#xoa vhost theo block
+	sed -i -e '/^virtualhost '$CLEAN'/,/^}$/d' /usr/local/lsws/conf/httpd_config.conf 
+	# sed -i "/$CLEAN/,+10d" /usr/local/lsws/conf/httpd_config.conf
+
+	rm -f /etc/wptt/vhost/.$CLEAN.conf
+
+	_rundone "Xóa toàn bộ website $CLEAN ra hệ thống webserver"
+
+	check_thu_muc_backup=$(ls /usr/local/backup-website/"$CLEAN" | grep '.zip\|.sql\|.sql.gz')
+	if [[ $check_thu_muc_backup ]];then
+		echo "Xác nhận bạn có muốn xóa cả thư mục backup website của website $CLEAN không? "
+		prompt="Nhập lựa chọn của bạn [1-2]: "
+		dongy2="n"
+		options=("Đồng ý" "Không đồng ý")
+		PS3="$prompt"
+		select opt in "${options[@]}"; do
+			case "$REPLY" in
+				1)
+					dongy2="y"
+					break
+					;;
+
+				2)
+					dongy2="n"
+					break
+					;;
+
+				$((${#options[@]} + 1)))
+					printf "\nBạn nhập sai hệ thống sẽ chọn là không đồng ý\n"
+					break
+					;;
+				*)
+					printf "Bạn nhập sai hệ thống sẽ chọn là không đồng ý\n"
+					break
+					;;
+			esac
+		done
+
+
+		if [[ "$dongy2" = "y" ]]; then
+			_runing "Xóa toàn bộ backup website $CLEAN"
+			rm -rf /usr/local/backup-website/"$CLEAN"
+			_rundone "Xóa toàn bộ backup website $CLEAN"
+		fi
+	else
+		rm -rf /usr/local/backup-website/"$CLEAN"
+	fi
+
+	if [[ -f "/etc/letsencrypt/live/$CLEAN/cert.pem" ]]; then
+		if [[ $domain_gia_lap ]];then
+			# nếu là domain giá lập thì xóa luôn chứng chỉ ssl luôn
+			dongyssl='y'
+		else
+			#nếu là domain không phải giả lập thì sẽ hỏi có muốn xóa không
+			echo "Xác nhận bạn có muốn xóa cả chứng chỉSSL FREE letsencrypt website $CLEAN không? "
+			prompt="Nhập lựa chọn của bạn [1-2]: "
+			dongyssl="n"
+			options=("Đồng ý" "Không đồng ý")
+			PS3="$prompt"
+			select opt in "${options[@]}"; do
+				case "$REPLY" in
+					1)
+						dongyssl="y"
+						break
+						;;
+
+					2)
+						dongyssl="n"
+						break
+						;;
+
+					$((${#options[@]} + 1)))
+						printf "\nBạn nhập sai hệ thống sẽ chọn là không đồng ý\n"
+						break
+						;;
+					*)
+						printf "Bạn nhập sai hệ thống sẽ chọn là không đồng ý\n"
+						break
+						;;
+				esac
+			done
+
+
+		fi
+		if [[ $dongyssl = "y" ]];then
+			_runing "Xóa chứng chỉ SSL website $CLEAN"
+			certbot revoke --non-interactive --agree-tos --cert-path /etc/letsencrypt/live/$CLEAN/cert.pem >/dev/null 2>&1
+			rm -rf /etc/letsencrypt/live/"$CLEAN"
+			_rundone "Xóa chứng chỉ SSL website $CLEAN"
+		fi
+	fi
+
+	if [[ -f /etc/wptt-auto/$CLEAN-auto-backup ]];then
+		_runing "Xóa tự động backup website $CLEAN"
+		rm -f /etc/wptt-auto/$CLEAN-auto-backup
+		rm -f /etc/cron.d/backup$CLEAN.cron
+		_rundone "Xóa tự động backup website $CLEAN"
+	fi
+
+	if [[ -f /etc/cron.d/delete-google-driver-$CLEAN.cron ]];then
+		_runing "Xóa tự động xóa file backup website $CLEAN trên Google Driver hết hạn" 
+		rm -f /etc/cron.d/delete-google-driver-$CLEAN.cron
+		rm -f /etc/wptt-auto/$CLEAN-delete-backup-google-driver
+		_rundone "Xóa tự động xóa file backup website $CLEAN trên Google Driver hết hạn" 
+	fi
+
+
+	if [[ -f /etc/cron.d/delete$CLEAN.cron ]];then
+		_runing "Xóa tự động xóa file backup website $CLEAN hết hạn" 
+		rm -f /etc/cron.d/delete$CLEAN.cron
+		rm -f /etc/wptt-auto/$CLEAN-delete-backup
+		_rundone "Xóa tự động xóa file backup website $CLEAN hết hạn" 
+	fi
+
+
+if [[ -f /etc/wptt/chuyen-huong/.$CLEAN.conf ]];then
+	rm -f /etc/wptt/chuyen-huong/.$CLEAN.conf
+fi
+
+
+NAMEwpadmin=${CLEAN//[-._]/wp}
+if [[ -f /etc/fail2ban/filter.d/wordpress-dangnhap-$NAMEwpadmin.conf ]];then
+rm -f /etc/fail2ban/filter.d/wordpress-dangnhap-$NAMEwpadmin.conf
+sed -i "/wordpress-dangnhap-$NAMEwpadmin/,+8d" /etc/fail2ban/jail.local
+fi
+
+	sleep 2
+	echo "==================================================================="
+	echo "Đã xóa thành công website $CLEAN                 "
+	echo "==================================================================="
+
+fi
+
+
+check_menu_wptangtoc_active=$1
+if [[ $check_menu_wptangtoc_active = "98" ]];then
+	. /etc/wptt/wptt-domain-main 1
+fi
+

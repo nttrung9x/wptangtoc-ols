@@ -1,0 +1,226 @@
+#!/bin/bash
+# @author: Gia Tuấn
+# @website: https://wptangtoc.com
+# @email: giatuan@wptangtoc.com
+# @since: 2023
+echo ""
+echo ""
+echo ""
+echo "========================================================================="
+echo "|Quản lý PHP => Thay đổi version PHP all                                |"
+echo "========================================================================="
+echo ""
+. /etc/wptt/.wptt.conf
+
+# echo "Bạn hãy nhập lựa chọn phiên bản PHP muốn sử dụng [0 = Thoát]: "
+# prompt="Nhap vao lua chon cua ban [1-4]: "
+# php_version="7.4"
+# options=("PHP 8.1" "PHP 8.0" "PHP 7.4" "PHP 7.3")
+# PS3="$prompt"
+# select opt in "${options[@]}"; do
+#     case "$REPLY" in
+#     1)
+#         php_version="8.1"
+#         break
+#         ;;
+
+# 	2)
+	#         php_version="8.0"
+	#         break
+	#         ;;
+#     3)
+	#         php_version="7.4"
+	#         break
+	#         ;;
+
+#     4)
+	#         php_version="7.3"
+	#         break
+	#         ;;
+#     $((${#options[@]} + 1)))
+	#         printf "\nHe thong se cai dat PHP 7.4\n"
+	#         break
+	#         ;;
+#     *) wptangtoc ;;
+#     esac
+# done
+
+#yum clean all để search cho update cập nhật
+if [[ $(which dnf 2>/dev/null) ]];then
+	dnf clean all >/dev/null 2>&1
+else
+	yum clean all >/dev/null 2>&1
+fi
+
+. /etc/wptt/echo-color
+
+
+_runing "Tiến hành quét các phiên bản PHP"
+selects=""
+selects=()
+x=''
+x=$(yum search lsphp --disablerepo="*" --enablerepo="litespeed" 2>/dev/null | grep 'lsphp' | cut -f1 -d '-' | cut -f1 -d '.' | awk '{ print $1}' | sort -u | sed '/:/d' | sed '/-/d' | sed '/==/d' | sed '/^&/d'| grep -Eo '[0-9]{1,2}' | perl -pe 's/(\d{1})(?=(?:\d{1}){1,5}\b)/\1./g'| sed 's/^/PHP /g')
+
+if [[ $(echo $x | grep -Eo '[0-9]{1,2}' ) = '' ]];then
+sed -i '/rpms.litespeedtech.com/d' /etc/hosts
+echo $'\n89.208.248.38 rpms.litespeedtech.com\n' >> /etc/hosts
+yum clean all >/dev/null 2>&1
+x=''
+x=$(yum search lsphp --disablerepo="*" --enablerepo="litespeed" 2>/dev/null | grep 'lsphp' | cut -f1 -d '-' | cut -f1 -d '.' | awk '{ print $1}' | sort -u | sed '/:/d' | sed '/-/d' | sed '/==/d' | sed '/^&/d'| grep -Eo '[0-9]{1,2}' | perl -pe 's/(\d{1})(?=(?:\d{1}){1,5}\b)/\1./g'| sed 's/^/PHP /g')
+su_dung_repo_du_phong=1
+fi
+
+if [[ $(echo $x | grep -Eo '[0-9]{1,2}' ) = '' ]];then
+	sed -i '/rpms.litespeedtech.com/d' /etc/hosts
+_runloi "Tiến hành quét các phiên bản PHP"
+	. /etc/wptt/wptt-php-ini-main 1
+fi
+
+echo -ne "                                                            " "\t" "\r"
+echo ""
+
+
+while IFS= read -r line; do selects+=("$line"); done <<<"$x"
+	PS3="
+-//- Bạn hãy lựa chọn phiên bản PHP bạn muốn sử dụng: (1-${#selects[@]}) [0=Thoát]: "
+	select select in "${selects[@]}"; do
+		php_version=$select
+		break
+	done
+
+	php_version=${php_version//[-._]/}
+	php_version=$(echo $php_version| grep -Eo '[0-9]{1,2}'| sed 's/^/lsphp/g')
+
+	php_ver_chon=$(echo $php_version | grep -Eo '[0-9]{1,2}' | head -1)
+
+	if [[ "$php_version" = "" || "$php_version" = '0' ]]; then
+		. /etc/wptt/wptt-php-ini-main 1
+	fi
+
+	php_ver_chon=$(echo $php_version | grep -Eo '[0-9]{1,2}' | head -1)
+
+	clear
+
+# if [[ "$php_version" = "$php_version_check" ]]; then
+#     echo "Hien tai server ban dang su dung phien ban php nay roi"
+#     exit
+# fi
+
+if [[ "$php_version" = "0" || "$php_version" = "" ]]; then
+	. /etc/wptt/wptt-php-ini-main 1
+	exit
+fi
+
+# php_ver_chon=${php_version//[-._]/}
+
+#chuyen doi vi du lsphp74 thì thành giá trị: 7.4
+extensions=(json gd pecl-imagick process mbstring mysqlnd xml opcache mcrypt pdo imap bcmath intl zip)
+yum install -y lsphp${php_ver_chon} --nogpgcheck --disablerepo="*" --enablerepo="litespeed"
+
+#fix lỗi hết data json version 7.4
+if [[ $(which dnf) = '' ]];then
+	if [[ $php_ver_chon = '74' ]];then
+		rpm -ivh http://rpms.litespeedtech.com/centos/7/update/x86_64/RPMS/lsphp74-json-7.4.33-2.el7.x86_64.rpm
+	fi
+fi
+
+for extension in ${extensions[@]};do
+	yum install -y lsphp${php_ver_chon}-$extension --nogpgcheck --disablerepo="*" --enablerepo="litespeed"
+done
+
+
+if [[ $(which dnf) = '' ]];then
+	if [[ $php_ver_chon = '74' ]];then
+		check_json=$(/usr/local/lsws/lsphp74/bin/php -m | grep 'json')
+		if [[ $check_json = '' ]];then
+			rpm -ivh http://rpms.litespeedtech.com/centos/7/update/x86_64/RPMS/lsphp74-json-7.4.33-2.el7.x86_64.rpm
+		fi
+	fi
+fi
+
+if [[ -f /etc/redis.conf ]];then
+	yum install lsphp${php_ver_chon}-pecl-redis -y --nogpgcheck --disablerepo="*" --enablerepo="litespeed"
+fi
+
+if [[ -d /usr/local/lsmcd || -f /etc/sysconfig/memcached ]];then
+	yum install lsphp${php_ver_chon}-pecl-memcached -y --nogpgcheck --disablerepo="*" --enablerepo="litespeed"
+fi
+
+
+sed -i "/opcache.memory_consumption/d" /usr/local/lsws/lsphp${php_ver_chon}/etc/php.ini
+sed -i "/opcache.interned_strings_buffer/d" /usr/local/lsws/lsphp${php_ver_chon}/etc/php.ini
+sed -i "/opcache.max_accelerated_files/d" /usr/local/lsws/lsphp${php_ver_chon}/etc/php.ini
+sed -i "/opcache.revalidate_freq/d" /usr/local/lsws/lsphp${php_ver_chon}/etc/php.ini
+sed -i "/opcache.fast_shutdown/d" /usr/local/lsws/lsphp${php_ver_chon}/etc/php.ini
+sed -i "/opcache.enable_cli/d" /usr/local/lsws/lsphp${php_ver_chon}/etc/php.ini
+echo '
+opcache.memory_consumption=128
+opcache.interned_strings_buffer=8
+opcache.max_accelerated_files=10000
+opcache.revalidate_freq=100
+opcache.fast_shutdown=1
+opcache.enable_cli=1' >>/usr/local/lsws/lsphp${php_ver_chon}/etc/php.ini
+
+
+. /etc/wptt/.wptt.conf
+if [[ $wptangtoc_ols_giatuan = "1" ]];then
+	sed -i "/opcache.validate_timestamps/d" /usr/local/lsws/lsphp${php_ver_chon}/etc/php.ini
+	sed -i "/opcache.file_update_protection/d" /usr/local/lsws/lsphp${php_ver_chon}/etc/php.ini
+	echo '
+	opcache.validate_timestamps=0
+	opcache.file_update_protection=0' >>/usr/local/lsws/lsphp${php_ver_chon}/etc/php.ini
+fi
+
+sed -i "s/expose_php = On/expose_php = off/g" /usr/local/lsws/lsphp${php_ver_chon}/etc/php.ini
+sed -i "s/upload_max_filesize = 2M/upload_max_filesize = 8M/g" /usr/local/lsws/lsphp${php_ver_chon}/etc/php.ini
+sed -i "s/max_execution_time = 30/max_execution_time = 120/g" /usr/local/lsws/lsphp${php_ver_chon}/etc/php.ini
+
+sed -i "/php_version_check/d" /etc/wptt/.wptt.conf
+
+#chuyen tu vi du tu 82 thanh 8.2
+php_version_number=$(echo $php_ver_chon | perl -pe 's/(\d{1})(?=(?:\d{1}){1,5}\b)/\1./g')
+
+echo "php_version_check=$php_version_number" >>/etc/wptt/.wptt.conf
+
+sed -E -i "s/lsphp[0-9]+/lsphp$php_ver_chon/g" /usr/local/lsws/conf/httpd_config.conf
+
+if [ "$(ls -A /etc/wptt/vhost)" ]; then
+	echo
+	echo "dang cap nhat chuyen doi version $php_version_number"
+	echo '--------------------------------------------------'
+	for entry in $(ls -A /etc/wptt/vhost); do
+		domain=$(echo $entry | sed 's/^.//' | sed 's/.conf//')
+		path="/usr/local/lsws/$domain/html"
+		i=1
+		if [[ -d "$path" ]]; then
+			sed -E -i "s/lsphp[0-9]+/lsphp$php_ver_chon/g" /usr/local/lsws/conf/vhosts/$domain/$domain.conf
+			sed -E -i "s/ lsphp${php_ver_chon}/lsphp${php_ver_chon}/g" /usr/local/lsws/conf/vhosts/"$domain"/"$domain".conf
+			sed -E -i "s/lsphp${php_ver_chon} /lsphp${php_ver_chon}/g" /usr/local/lsws/conf/vhosts/"$domain"/"$domain".conf
+
+			sed -i '/phien_ban_php_domain/d' /etc/wptt/vhost/.$domain.conf
+			echo "phien_ban_php_domain=$php_version_number" >> /etc/wptt/vhost/.$domain.conf
+		fi
+	done
+	echo '--------------------------------------------------'
+	echo
+fi
+
+/usr/local/lsws/bin/lswsctrl restart >/dev/null 2>&1
+
+#biến môi trường
+ln -sf /usr/local/lsws/lsphp${php_ver_chon}/bin/lsphp /usr/local/lsws/fcgi-bin/lsphp${php_ver_chon}
+ln -sf /usr/local/lsws/lsphp${php_ver_chon}/bin/lsphp /usr/local/lsws/fcgi-bin/lsphp5
+ln -sf /usr/local/lsws/lsphp${php_ver_chon}/bin/php /usr/bin/php
+
+if [[ $su_dung_repo_du_phong = '1' ]];then
+	sed -i '/rpms.litespeedtech.com/d' /etc/hosts
+fi
+
+clear
+echo "Hoàn tất việc chuyển PHP version $php_version"
+
+check_menu_wptangtoc_active=$1
+if [[ $check_menu_wptangtoc_active = "98" ]];then
+	. /etc/wptt/wptt-php-ini-main 1
+fi
+

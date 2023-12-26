@@ -1,0 +1,47 @@
+#!/bin/bash
+
+echo ""
+echo ""
+echo ""
+echo "========================================================================="
+echo "|Bao Mật => Huy Kích hoạt Hotlinking	                                  |"
+echo "========================================================================="
+echo ""
+
+. /etc/wptt/tenmien
+echo ""
+echo ""
+echo "Lựa chọn website bạn muốn huỷ kích hoạt Hotlinking: "
+echo ""
+lua_chon_NAME
+
+if [[ $NAME = '' || $NAME = '0' ]];then
+. /etc/wptt/wptt-bao-mat-main 1
+fi
+
+giatuandz=$(cat /usr/local/lsws/$NAME/html/.htaccess | grep -c "#begin-hotlink-wptangtoc-ols")
+
+if [[ "$giatuandz" = "0" ]]; then
+echo "Bạn chưa kích hoạt hotlinking trước đó rồi"
+. /etc/wptt/wptt-bao-mat-main 1
+exit
+fi
+
+. /etc/wptt/echo-color
+path="/usr/local/lsws/$NAME/html/.htaccess"
+if [[ -f "$path" ]]; then
+	_runing "Huỷ kích hoạt hotlinking website $NAME"
+sed -i -e '/^#begin-hotlink-wptangtoc-ols/,/^#end-hotlink-wptangtoc-ols$/d' /usr/local/lsws/$NAME/html/.htaccess
+/usr/local/lsws/bin/lswsctrl restart >/dev/null 2>&1
+	_rundone "Huỷ kích hoạt hotlinking website $NAME"
+else
+	_runloi "Huỷ kích hoạt hotlinking website $NAME"
+fi
+
+
+check_menu_wptangtoc_active=$1
+if [[ $check_menu_wptangtoc_active = "98" ]];then
+. /etc/wptt/wptt-bao-mat-main 1
+fi
+
+

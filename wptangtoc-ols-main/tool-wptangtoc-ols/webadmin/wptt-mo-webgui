@@ -1,0 +1,120 @@
+#!/bin/bash
+# @author: Gia Tuấn
+# @website: https://wptangtoc.com
+# @since: 2022
+
+echo "========================================================================="
+echo "|Quản lý WebGuiAdmin => Kích hoạt                                       |"
+echo "========================================================================="
+
+. /etc/wptt/.wptt.conf
+path="/usr/local/lsws/conf/disablewebconsole"
+if [[ ! -f $path ]]; then
+	echo "Bạn đã mở webguiadmin trước đó rồi"
+	check_menu_wptangtoc_active=$1
+	if [[ $check_menu_wptangtoc_active = "98" ]];then
+		. /etc/wptt/wptt-webadmin-main 1
+	fi
+	exit
+fi
+
+ip=$(curl -s myip.directadmin.com)
+if [[ "$ip" = "" ]]; then
+    ip=$(curl -s ifconfig.me)
+fi
+
+echo "Xác nhận bạn có muốn mở openlitespeed webgui? "
+prompt="Nhập lựa chọn của bạn [1-2]: "
+confirm="n"
+options=("Đồng ý" "Không đồng ý")
+PS3="$prompt"
+select opt in "${options[@]}"; do
+	case "$REPLY" in
+		1)
+			confirm="y"
+			break
+			;;
+
+		2)
+			confirm="n"
+			break
+			;;
+
+		$((${#options[@]} + 1)))
+			printf "\nBạn nhập sai hệ thống sẽ chọn là không đồng ý\n"
+			break
+			;;
+		*)
+			printf "Bạn nhập sai hệ thống sẽ chọn là không đồng ý\n"
+			break
+			;;
+	esac
+done
+
+
+if [[ "$confirm" = "y" ]]; then
+    rm -f /usr/local/lsws/conf/disablewebconsole
+    /usr/local/lsws/bin/lswsctrl restart >/dev/null 2>&1
+fi
+echo "Bạn có muốn thay đổi Port webguiadmin OLS? để nâng cao bảo mật"
+read -p "Nhập port webguiadmin OLS mới, bỏ qua nhấn (Enter): " port_ols
+
+if [[ ! $port_ols =~ ^-?[0-9]+$ ]]; then
+    clear
+    echo "Bạn nhập sai dữ liệu sẽ tự động để nguyên port mặc định là cổng port 19019"
+    port_ols=19019
+fi
+
+if [ "$port_ols" = '' ]; then
+    port_ols=19019
+fi
+
+if [ "$port_ols" = "$port_ssh" ]; then
+    echo "trùng với công port ssh của bạn $port_ssh"
+    echo "Vui lòng thiết lập lại và chọn cổng port khác"
+	 . /etc/wptt/wptt-webadmin-main 1
+    exit
+fi
+
+echo "Xác nhận port_webgui_openlitpeed la: $port_ols"
+
+if [[ $(echo $port_ols) = '' ]];then
+	port_ols='19019'
+fi
+
+port_webgui_openlitespeed=$(cat /usr/local/lsws/admin/conf/admin_config.conf | grep "address" | cut -f2 -d":")
+sed -i "s/$port_webgui_openlitespeed/$port_ols/g" /usr/local/lsws/admin/conf/admin_config.conf
+    firewall-cmd --permanent --zone=public --add-port=$port_ols/tcp
+    firewall-cmd --reload
+    /usr/local/lsws/bin/lswsctrl restart >/dev/null 2>&1
+
+if [[ -f /etc/csf/csf.conf ]];then
+	if [[ $(cat /etc/csf/csf.conf | grep '^TCP_IN' | grep "$port_ols,") = '' ]];then
+		sed -i "s/^TCP_IN = \"/TCP_IN = \"$port_ols,/g" /etc/csf/csf.conf
+		csf -x >/dev/null 2>&1
+		csf -e >/dev/null 2>&1
+	fi
+fi
+
+
+sed -i "/port_webgui_openlitespeed=/d" /etc/wptt/.wptt.conf
+echo "
+port_webgui_openlitespeed=$port_ols" >>/etc/wptt/.wptt.conf
+
+echo "              Lưu lại thông tin bên dưới để truy cập              "
+echo "-------------------------------------------------------------------------"
+echo "1.	WebAdmin console port: $port_ols                	               		  "
+echo "2.	truy cap webgui OLS: http://$ip:$port_ols            	        	 "
+echo "3.	Ten dang nhap OLS webgui:  $Ten_dang_nhap_ols_webgui                        		   "
+echo "4.	Password OLS webgui:  $Password_OLS_webgui                    	        	 "
+echo "-------------------------------------------------------------------------"
+echo "-------------------------------------------------------------------------"
+echo "Bạn có thể vào menu WPTangToc OLS để xem lại tài khoản webguiadmin"
+echo "-------------------------------------------------------------------------"
+
+
+check_menu_wptangtoc_active=$1
+if [[ $check_menu_wptangtoc_active = "98" ]];then
+ . /etc/wptt/wptt-webadmin-main 1
+fi
+

@@ -1,0 +1,73 @@
+#!/bin/bash
+# @author: Gia Tuấn
+# @website: https://wptangtoc.com
+# @since: 2022
+echo ""
+echo ""
+echo ""
+echo "========================================================================="
+echo "|Quản lý Logs => Hủy kích hoạt ghi logs database                        |"
+echo "========================================================================="
+echo ""
+echo ""
+
+check=$(cat /etc/my.cnf.d/server.cnf | grep -c "skip-log-bin")
+if [[ "$check" = "1" ]];then
+echo "Ban chua kich hoat tinh nang ghi logs database"
+sleep 3
+. /etc/wptt/wptt-menu-logs
+exit
+fi
+
+echo "Xác nhận tắt tính năng ghi logs database"
+prompt="Nhập lựa chọn của bạn [1-2]: "
+dongy="n"
+options=("Đồng ý" "Không đồng ý")
+PS3="$prompt"
+select opt in "${options[@]}"; do
+	case "$REPLY" in
+		1)
+			dongy="y"
+			break
+			;;
+
+		2)
+			dongy="n"
+			break
+			;;
+
+		$((${#options[@]} + 1)))
+			printf "\nBạn nhập sai hệ thống sẽ chọn là không đồng ý\n"
+			break
+			;;
+		*)
+			printf "Bạn nhập sai hệ thống sẽ chọn là không đồng ý\n"
+			break
+			;;
+	esac
+done
+
+
+if [[ "$dongy" = "y" ]];then
+sed -i '/log-bin/d' /etc/my.cnf.d/server.cnf
+sed -i '/\[mysqld\]/a skip-log-bin' /etc/my.cnf.d/server.cnf
+sed -i '/slow-query-log/d' /etc/my.cnf.d/server.cnf
+sed -i '/slow-query-log-file/d' /etc/my.cnf.d/server.cnf
+sed -i '/long_query_time/d' /etc/my.cnf.d/server.cnf
+sed -i '/general-log/d' /etc/my.cnf.d/server.cnf
+sed -i '/mysql-error.log/d' /etc/my.cnf.d/server.cnf
+
+systemctl restart mariadb.service
+echo "========================================================================="
+echo "Hoàn tất hủy kích hoạt ghi database"
+echo "========================================================================="
+else
+. /etc/wptt/wptt-menu-logs 1
+fi
+
+
+check_menu_wptangtoc_active=$1
+if [[ $check_menu_wptangtoc_active = "98" ]];then
+. /etc/wptt/wptt-menu-logs 1
+fi
+

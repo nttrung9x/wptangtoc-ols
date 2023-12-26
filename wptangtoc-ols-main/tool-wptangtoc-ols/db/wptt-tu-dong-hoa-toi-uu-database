@@ -1,0 +1,116 @@
+#!/bin/bash
+echo ""
+echo ""
+echo ""
+echo "========================================================================="
+echo "|Quản lý Database => Thiết lập tự động tối ưu hóa database 			  |"
+echo "========================================================================="
+echo "/-----------------------------------------------------------------------/"
+if [[ -f /etc/cron.d/database-toi-uu-hoa-all.cron ]]; then
+checkauto1=$(cat /etc/cron.d/database-toi-uu-hoa-all.cron | cut -f2 -d " ")
+checkauto2=$(cat /etc/cron.d/database-toi-uu-hoa-all.cron | cut -f5 -d " ")
+			if [ "$checkauto2" = "0" ] || [ "$checkauto2" = "7" ]; then
+				thu123=" giờ chủ nhất hàng tuần"
+			fi
+			if [ "$checkauto2" = "1" ]; then
+				thu123=" giờ thứ hai hàng tuần"
+			fi
+			if [ "$checkauto2" = "2" ]; then
+				thu123=" giờ thứ ba hàng tuần"
+			fi
+			if [ "$checkauto2" = "3" ]; then
+				thu123=" giờ thứ tư hàng tuần"
+			fi
+			if [ "$checkauto2" = "4" ]; then
+				thu123=" giờ thứ năm hàng tuần"
+			fi
+			if [ "$checkauto2" = "5" ]; then
+				thu123=" giờ thứ sáu hàng tuần"
+			fi
+			if [ "$checkauto2" = "6" ]; then
+				thu123=" giờ thứ bảy hàng tuần"
+			fi
+
+			if [ "$checkauto2" = "*" ]; then
+				thu123=" giờ hàng ngày"
+			fi
+    echo "Trạng thái: đã được kích hoạt vào lúc $checkauto1$thu123"
+else
+    echo "Trạng thái: chưa được kích hoạt"
+fi
+echo "/-----------------------------------------------------------------------/"
+
+
+if [[ -f /etc/cron.d/database-toi-uu-hoa-all.cron ]]; then
+read -p "Bạn có muốn tắt tự động tối ưu hóa database? (y/n): " dongy
+    if [[ "$dongy" = "y" ]]; then
+        rm -f /etc/cron.d/database-toi-uu-hoa-all.cron
+		echo "Hoàn tất ngừng kích hoạt tự động tối ưu hóa database"
+		systemctl restart crond.service
+    fi
+else
+
+echo -n "Bạn muốn tự động tối ưu hóa Database vào lúc mấy giờ ?[0-23]: "
+read gio
+
+if [[ ! $gio =~ ^-?[0-9]+$ ]]; then
+	echo "Ban khong nhap du lieu se lay tu dong la 1h sang"
+	gio="1"
+fi
+
+if (( "$gio" > "23" )); then
+	echo "Ban khong nhap du lieu se lay tu dong la 1h sang"
+	gio="1"
+fi
+
+if [[ "$gio" = "" ]]; then
+	gio="1"
+	echo "Ban khong nhap du lieu se lay tu dong la 1h sang, hay chon thoi diem thoi gian website bi it traffic nhat ranh roi tai nguyen de backup"
+fi
+
+echo "Bạn muốn tự động tối ưu hóa database vào thứ mấy? "
+echo ""
+. /etc/wptt/wptt-times-tuan
+tuan
+if [ "$thu" = "0" ] || [ "$thu" = "7" ]; then
+	thu12="chủ nhật hàng tuần"
+fi
+if [ "$thu" = "1" ]; then
+	thu12="thứ hai hàng tuần"
+fi
+if [ "$thu" = "2" ]; then
+	thu12="thứ ba hàng tuần"
+fi
+if [ "$thu" = "3" ]; then
+	thu12="thứ tư hàng tuần"
+fi
+if [ "$thu" = "4" ]; then
+	thu12="thứ năm hàng tuần"
+fi
+if [ "$thu" = "5" ]; then
+	thu12="thứ sáu hàng tuần"
+fi
+if [ "$thu" = "6" ]; then
+	thu12="thứ bảy hàng tuần"
+fi
+
+if [ "$thu" = "*" ]; then
+	thu12="hàng ngày"
+fi
+
+        cat >"/etc/cron.d/database-toi-uu-hoa-all.cron" <<END
+0 $gio * * $thu root /etc/wptt/wordpress/all-database >/dev/null 2>&1
+END
+systemctl restart crond.service
+	echo "-------------------------------------------------------------------------"
+	echo "Hoàn tất kích hoạt tự động tối ưu hóa database"
+	echo "vào lúc $gio giờ $thu12 ."
+	echo "-------------------------------------------------------------------------"
+fi
+
+
+check_menu_wptangtoc_active=$1
+if [[ $check_menu_wptangtoc_active = "98" ]];then
+. /etc/wptt/wptt-db-main 1
+fi
+

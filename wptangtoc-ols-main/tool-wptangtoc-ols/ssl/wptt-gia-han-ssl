@@ -1,0 +1,87 @@
+#!/bin/bash
+# @author: Gia Tuấn
+# @website: https://wptangtoc.com
+# @since: 2023
+
+echo ""
+echo ""
+echo ""
+echo "========================================================================="
+echo "|Quản lý SSL => Gia hạn thủ công chứng chỉSSL FREE letsencrypt          |"
+echo "========================================================================="
+echo ""
+echo ""
+. /etc/wptt/echo-color
+
+selects=()
+for entry in $(ls -A /etc/wptt/vhost); do
+	NAME=$(echo $entry | sed 's/^.//' | sed 's/.conf//')
+	if [[ -f /etc/letsencrypt/live/$NAME/cert.pem ]]; then
+			selects+=("$NAME")
+	fi
+done
+
+if [[ $selects = '' ]];then
+	echo "Tất cả domain trên hệ thống không có domain nào sử dụng SSL letsencrypt"
+	. /etc/wptt/wptt-ssl-main 1
+fi
+
+
+echo "Bạn muốn gia hạn chứng chỉssl Free letsencrypt? (y/n): "
+prompt="Nhập lựa chọn của bạn [1-2]: "
+renew="n"
+options=("Đồng ý" "Không đồng ý")
+PS3="$prompt"
+select opt in "${options[@]}"; do
+	case "$REPLY" in
+		1)
+			renew="y"
+			break
+			;;
+
+		2)
+			renew="n"
+			break
+			;;
+
+		$((${#options[@]} + 1)))
+			printf "\nBạn nhập sai hệ thống sẽ chọn là không đồng ý\n"
+			break
+			;;
+		*)
+			printf "Bạn nhập sai hệ thống sẽ chọn là không đồng ý\n"
+			break
+			;;
+	esac
+done
+
+
+if [[ "$renew" = "y" ]]; then
+	_runing "Gia hạn chứng chỉ SSL Free letsencrypt"
+
+	if [[ -f /etc/csf/csf.conf ]];then
+		countryblicklist=`grep "CC_ALLOW_FILTER =\ " /etc/csf/csf.conf | awk 'NR==1 {print $3}' | cut -d \" -f 2`
+		if [ "$countryblicklist" ]; then
+			csf -x >/dev/null 2>&1
+		fi
+	fi
+
+    /usr/bin/certbot renew --quiet
+    /usr/local/lsws/bin/lswsctrl restart >/dev/null 2>&1
+
+	if [[ -f /etc/csf/csf.conf ]];then
+		countryblicklist=`grep "CC_ALLOW_FILTER =\ " /etc/csf/csf.conf | awk 'NR==1 {print $3}' | cut -d \" -f 2`
+		if [ "$countryblicklist" ]; then
+			csf -e >/dev/null 2>&1
+		fi
+	fi
+
+	_rundone "Gia hạn chứng chỉ SSL Free letsencrypt"
+fi
+
+check_menu_wptangtoc_active=$1
+if [[ $check_menu_wptangtoc_active = "98" ]];then
+. /etc/wptt/wptt-ssl-main 1
+fi
+
+

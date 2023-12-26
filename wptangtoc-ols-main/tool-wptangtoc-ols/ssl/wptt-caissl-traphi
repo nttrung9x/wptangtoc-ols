@@ -1,0 +1,167 @@
+#!/bin/bash
+# @author: Gia Tuấn
+# @website: https://wptangtoc.com
+# @since: 2022
+echo ""
+echo ""
+echo ""
+echo "========================================================================="
+echo "|Quản lý SSL => Cài đặt SSL trả phí paid                                |"
+echo "========================================================================="
+. /etc/wptt/.wptt.conf
+. /etc/wptt/echo-color
+NAME=$1
+no_key=$2
+
+if [[ $NAME = "98" ]];then
+NAME=""
+fi
+
+if [[ $NAME = "" ]];then
+. /etc/wptt/tenmien
+echo ""
+echo ""
+echo "Lựa chọn website muốn cài SSL trả phí (HTTPS): "
+echo ""
+lua_chon_NAME
+fi
+
+if [[ "$NAME" = "0" || "$NAME" = "" ]]; then
+  . /etc/wptt/wptt-ssl-main 1
+fi
+
+path="/etc/wptt/vhost/.$NAME.conf"
+if [[ ! -f "$path" ]]; then
+    clear
+	echoDo "Tên miền không tồn tại trên hệ thống này"
+    sleep 3
+  . /etc/wptt/wptt-ssl-main 1
+    exit
+fi
+
+mkdir -p /usr/local/lsws/"$NAME"/ssl
+if [[ $no_key = "" ]];then
+echo "Bạn có muốn tạo file private key không?: "
+prompt="Nhập lựa chọn của bạn [1-2]: "
+dongy2="n"
+options=("Đồng ý" "Không đồng ý")
+PS3="$prompt"
+select opt in "${options[@]}"; do
+	case "$REPLY" in
+		1)
+			dongy2="y"
+			break
+			;;
+
+		2)
+			dongy2="n"
+			break
+			;;
+
+		$((${#options[@]} + 1)))
+			printf "\nBạn nhập sai hệ thống sẽ chọn là không đồng ý\n"
+			break
+			;;
+		*)
+			printf "Bạn nhập sai hệ thống sẽ chọn là không đồng ý\n"
+			break
+			;;
+	esac
+done
+fi
+
+if [[ "$dongy2" = "y" ]];then
+openssl genrsa -out /usr/local/lsws/"$NAME"/ssl/"$NAME".key 2048
+country='VN'
+state='Hai Phong'
+locality='Hai Phong'
+organization="$NAME"
+organizationalunit="$NAME"
+commonname="$NAME"
+email="admin@${NAME}"
+
+openssl req -new -key /usr/local/lsws/"$NAME"/ssl/"$NAME".key -out /usr/local/lsws/"$NAME"/ssl/"$NAME".csr \
+    -subj "/C=$country/ST=$state/L=$locality/O=$organization/OU=$organizationalunit/CN=$commonname/emailAddress=$email"
+
+chmod 600 /usr/local/lsws/"$NAME"/ssl/"$NAME".key
+
+echo "========================================================================="
+echo "==>Copy đoạn mã key xác thực bên nhà cung cấp dịch vụ SSL <=="
+echo "========================================================================="
+echo ""
+echo ""
+cat /usr/local/lsws/"$NAME"/ssl/"$NAME".csr
+fi
+
+if [[ "$NAME" = "$Website_chinh" ]]; then
+  sed -i "/letsencrypt/d" /usr/local/lsws/conf/httpd_config.conf
+  sed -i "/https/a   keyFile              \/usr\/local\/lsws\/${NAME}\/ssl\/${NAME}.key" /usr/local/lsws/conf/httpd_config.conf
+  sed -i "/https/a   certFile             \/usr\/local\/lsws\/${NAME}\/ssl\/cert.crt" /usr/local/lsws/conf/httpd_config.conf
+  sed -i "/https/a   CACertFile           \/usr\/local\/lsws\/${NAME}\/ssl\/ca_bundle.crt" /usr/local/lsws/conf/httpd_config.conf
+fi
+
+
+sed -i -e '/^vhssl /,/^}$/d' /usr/local/lsws/conf/vhosts/$NAME/$NAME.conf
+
+echo "vhssl  {
+  keyFile                 /usr/local/lsws/$NAME/ssl/$NAME.key
+  certFile                /usr/local/lsws/$NAME/ssl/cert.crt
+  certChain               0
+  CACertFile              /usr/local/lsws/$NAME/ssl/ca_bundle.crt
+  sslProtocol             24
+  renegProtection         1
+  sslSessionCache         1
+  sslSessionTickets       1
+  enableSpdy              15
+  enableQuic              1
+  enableStapling          1
+
+
+
+
+}
+
+" >>/usr/local/lsws/conf/vhosts/"$NAME"/"$NAME".conf
+
+path2="/usr/local/lsws/$NAME/html/.htaccess"
+grepwww=$(grep -c 'RewriteCond %{HTTP_HOST} ^www' $path2)
+grepssl=$(grep -c 'RewriteCond %{HTTPS} !=on' $path2)
+
+if [[ "$grepssl" != "0" ]]; then
+  if [[ "$grepwww" = "0" ]]; then
+    sed -i '/RewriteCond %{HTTPS} !=on/,+1d' $path2
+  else
+    sed -i '/RewriteCond %{HTTP_HOST} ^www/,+3d' $path2
+  fi
+fi
+
+checkdns=$(host $NAME | grep -Eo -m 1 '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}')
+checkdnscname=$(host www.$NAME | grep -Eo -m 1 '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}')
+
+if [[ "$checkdns" = "$checkdnscname" ]]; then
+  sed -i '1 i RewriteCond %{HTTP_HOST} ^www.'$NAME' [NC]\
+ RewriteRule ^(.*)$ https:\/\/'$NAME'/$1 [L,R=301,NC]\
+ RewriteCond %{HTTPS} !=on\
+ RewriteRule ^(.*)$ https:\/\/%{HTTP_HOST}%{REQUEST_URI} [L,R=301,NE]' /usr/local/lsws/"$NAME"/html/.htaccess
+else
+  sed -i '1 i RewriteCond %{HTTPS} !=on\
+RewriteRule ^(.*)$ https:\/\/%{HTTP_HOST}%{REQUEST_URI} [L,R=301,NE]' /usr/local/lsws/"$NAME"/html/.htaccess
+fi
+
+if [[ $no_key = "" ]];then
+if [[ "$dongy2" = "y" ]];then
+echo "Yêu cầu uploads gồm 2 file: cert.crt và ca_bundle.crt"
+else
+echo "Yêu cầu uploads gồm 3 file: cert.crt và ca_bundle.crt va $NAME.key"
+fi
+echo "Những file bên trên đơn vị cung cấp dịch vụ SSL sẽ cung cấp cho bạn, bạn sẽ uploads vào thư mục: /usr/local/lsws/$NAME/ssl/"
+echo "Vui lòng đặt đúng tên giống như trên rồi uploads vào thư mục WPTangToc OLS yêu cầu"
+echo "Khi hoàn tất uploads xong hãy gõ lệnh: wptt ssl-tra-phi-config $NAME"
+fi
+
+check_menu_wptangtoc_active=$1
+if [[ $check_menu_wptangtoc_active = "98" ]];then
+. /etc/wptt/wptt-ssl-main 1
+fi
+
+

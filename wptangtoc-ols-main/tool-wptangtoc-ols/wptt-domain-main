@@ -1,0 +1,96 @@
+#!/bin/bash
+if [[ $1 = "" ]];then
+. /etc/wptt/wptt-header-menu
+header_menu
+else
+	. /etc/wptt/echo-color
+echoDo "=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-="
+fi
+
+echo ""
+echo ""
+echo "Quản lý domain:"
+echo ""
+options=(
+    "Thêm domain && subdomain"                #1
+    "Xóa domain"                              #2
+    "Danh sách domain"                        #3
+    "Kiểm tra hoạt động các website"          #4
+    "Phân quyền Domain"                       #5
+    "Chuyển hướng Domain"                     #6
+    "Xóa chuyển hướng Domain"                 #7
+    "Giám sát hệ thống theo gian thực Domain" #8
+    "Thay đổi domain"    #9
+    "Thêm Parked Alias domain"                #10
+    "Xóa Parked Alias domain"                 #11
+    "Mở/Khóa Domain"                          #12
+    "Thay đổi username"                       #13
+    "Bật/Tắt đăng nhập username riêng domain" #14
+    "Khởi tạo subfolder website" #15
+)
+PS3="
+Nhập lựa chọn của bạn (1-${#options[@]}) [0=Thoát]: "
+select opt in "${options[@]}"; do
+    case $opt in
+
+    "${options[0]}")
+        "/etc/wptt/domain/wptt-themwebsite" 98
+        ;;
+    "${options[1]}")
+        "/etc/wptt/domain/wptt-xoa-website" 98
+        ;;
+    "${options[2]}")
+        "/etc/wptt/domain/wptt-list-domain" 98
+        ;;
+
+    "${options[3]}")
+        "/etc/wptt/domain/wptt-kiemtra-hoat-dong" 98
+        ;;
+
+    "${options[4]}")
+        "/etc/wptt/wptt-phanquyen" 98
+        ;;
+
+    "${options[5]}")
+        "/etc/wptt/domain/wptt-chuyen-huong" 98
+        ;;
+        
+    "${options[6]}")
+        "/etc/wptt/domain/wptt-xoa-domain-chuyen-huong" 98
+        ;;
+
+    "${options[7]}")
+        "/etc/wptt/domain/real-time-check" 98
+        ;;
+
+    "${options[8]}")
+        "/etc/wptt/domain/thay-doi-domain" 98
+        ;;
+
+    "${options[9]}")
+		"/etc/wptt/domain/wptt-alias-domain" 98
+		;;
+
+	"${options[10]}")
+		"/etc/wptt/domain/wptt-xoa-alias-domain" 98
+		;;
+
+	"${options[11]}")
+		"/etc/wptt/domain/wptt-bat-tat-domain" 98
+		;;
+
+	"${options[12]}")
+		"/etc/wptt/domain/wptt-thay-doi-user" 98
+		;;
+
+	"${options[13]}")
+		"/etc/wptt/domain/wptt-khoi-tao-user" 98
+		;;
+
+	"${options[14]}")
+		"/etc/wptt/domain/wptt-subfolder-website" 98
+		;;
+
+    *) wptangtoc 1 ;;
+    esac
+done

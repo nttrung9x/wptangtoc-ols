@@ -1,0 +1,112 @@
+#!/bin/bash
+# @author: Gia Tuấn
+# @website: https://wptangtoc.com
+# @email: giatuan@wptangtoc.com
+# @since: 2022
+if [[ $1 = "" ]];then
+	. /etc/wptt/wptt-header-menu
+	header_menu
+	echo "+-----------------------------------------------------------------------+"
+	echo "|Tình trạng hoạt động các service hiện tại                              |"
+	echo "+-----------------------------------------------------------------------+"
+	echo "|LiteSpeed     : $(systemctl status lshttpd.service | grep 'Active' | cut -f2 -d':' | xargs | cut -f1 -d' ' | xargs)                                                  |"
+	echo "|MariaDB       : $(systemctl status mariadb.service | grep 'Active' | cut -f2 -d':' | xargs | cut -f1 -d' ' | xargs)                                                 |"
+	if [[ -f /etc/sysconfig/memcached ]];then
+		echo "|Memcached   : $(systemctl status memcached.service | grep 'Active' | cut -f2 -d':' | xargs | cut -f1 -d' ' | xargs)                                                 |"
+	fi
+	if [[ -d /usr/local/lsmcd ]];then
+		echo "|LSMemcached   : $(systemctl status lsmcd.service | grep 'Active' | cut -f2 -d':' | xargs | cut -f1 -d' ' | xargs)                                                 |"
+	fi
+	if [[ -f /etc/redis.conf ]];then
+		echo "|Redis 		: $(systemctl status redis.service | grep 'Active' | cut -f2 -d':' | xargs | cut -f1 -d' ' | xargs)                                                 |"
+	fi
+	echo "|SSH           : $(systemctl status sshd.service | grep 'Active' | cut -f2 -d':' | xargs | cut -f1 -d' ' | xargs)                                                 |"
+	echo "|Crond         : $(systemctl status crond.service | grep 'Active' | cut -f2 -d':' | xargs | cut -f1 -d' ' | xargs)                                                 |"
+	echo "|Fail2Ban      : $(systemctl status fail2ban.service | grep 'Active' | cut -f2 -d':' | xargs | cut -f1 -d' ' | xargs)                                                 |"
+	echo "+-----------------------------------------------------------------------+"
+else
+	. /etc/wptt/echo-color
+	echoDo "=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-="
+fi
+
+
+options=(
+    "Stop-LiteSpeed-Webserver"                                                           #1
+    "Stop-Maria-Database"                                                                #2
+    "Stop-Fai2ban"                                                                       #3
+    "Stop-ALL-service"                                                                   #4
+)
+
+if [[ -d /usr/local/lsmcd ]];then
+options+=("Stop-LSMemcached")
+fi
+
+if [[ -f /etc/redis.conf ]];then
+options+=("Stop-Redis")
+fi
+
+if [[ -f /etc/sysconfig/memcached ]];then
+options+=("Stop-Memcached")
+fi
+
+
+# for service in ${options[@]};do
+# echo $service
+# done
+
+function lua_chon_NAME() {
+	NAME=""
+	a=0
+	selects=()
+		for entry in ${options[@]}; do
+			selects+=("$entry")
+			a=$((a+1));
+		done
+		PS3="
+Nhập lựa chọn của bạn (1-${a}) [0=Thoát]: "
+		select select in ${selects[@]}; do
+			service=$select
+			index=$REPLY
+			break
+		done
+}
+
+echo ""
+echo ""
+echo "Quản lý Stop service:"
+echo ""
+lua_chon_NAME
+
+
+if [[ $service = 'Stop-LiteSpeed-Webserver' ]];then
+. /etc/wptt/service/stop-app/wptt-stop-litespeed 98
+fi
+
+if [[ $service = 'Stop-Maria-Database' ]];then
+. /etc/wptt/service/stop-app/wptt-stop-mariadb 98
+fi
+
+if [[ $service = 'Stop-Fai2ban' ]];then
+. /etc/wptt/service/stop-app/wptt-stop-fail2ban 98
+fi
+
+if [[ $service = 'Stop-ALL-service' ]];then
+. /etc/wptt/service/stop-app/wptt-stop-app 98
+fi
+
+if [[ $service = 'Stop-LSMemcached' ]];then
+. /etc/wptt/service/stop-app/wptt-stop-lsmemcached 98
+fi
+
+if [[ $service = 'Stop-Redis' ]];then
+. /etc/wptt/service/stop-app/wptt-stop-redis 98
+fi
+
+if [[ $service = 'Stop-Memcached' ]];then
+. /etc/wptt/service/stop-app/wptt-stop-memcached 98
+fi
+
+if [[ $service = '' || $service = '0' || $service = * ]];then
+. /etc/wptt/wptt-service-main 1
+fi
+

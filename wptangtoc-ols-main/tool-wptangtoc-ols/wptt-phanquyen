@@ -1,0 +1,102 @@
+#!/bin/bash
+# @author: Gia Tuấn
+# @website: https://wptangtoc.com
+# @email: giatuan@wptangtoc.com
+# @since: 2023
+echo "========================================================================="
+echo ""
+echo ""
+. /etc/wptt/tenmien
+echo "Lựa chọn website bạn muốn phân quyền: "
+echo ""
+lua_chon_NAME
+
+if [[ "$NAME" = "0" || "$NAME" = "" ]]; then
+    wptangtoc 1
+fi
+
+. /etc/wptt/echo-color
+pathcheck="/etc/wptt/vhost/.$NAME.conf"
+if [[ ! -f "$pathcheck" ]]; then
+    clear
+	echoDo "Tên miền không tồn tại trên hệ thống này"
+    sleep 3
+    wptangtoc 1
+    exit
+fi
+
+. /etc/wptt/.wptt.conf
+lock_down=''
+. /etc/wptt/vhost/."$NAME".conf
+_runing "Phân quyền website $NAME"
+chown -R "$User_name_vhost":"$User_name_vhost" /usr/local/lsws/"$NAME"/html
+
+
+if [[ -f /usr/local/lsws/"$NAME"/.bashrc ]];then
+	chown "$User_name_vhost":"$User_name_vhost" /usr/local/lsws/"$NAME"/.bashrc
+	chown "$User_name_vhost":"$User_name_vhost" /usr/local/lsws/"$NAME"/.bash_profile
+	chown "$User_name_vhost":"$User_name_vhost" /usr/local/lsws/"$NAME"/.bash_logout
+fi
+
+# find /usr/local/lsws/"$NAME"/html -type d -exec chmod 755 {} \;
+# find /usr/local/lsws/"$NAME"/html -type f -exec chmod 644 {} \;
+chmod 755 /usr/local/lsws/"$NAME"/html
+
+if [[ $lock_down ]];then
+	find /usr/local/lsws/"$NAME"/html -type f -print0 |xargs -0 chmod 404
+	find /usr/local/lsws/"$NAME"/html -type d -print0 |xargs -0 chmod 515
+	#lockdown vẫn có thể uploads được dữ liệu wp-uploads
+	if [[ -d /usr/local/lsws/"$NAME"/html/wp-content/uploads ]];then
+		find /usr/local/lsws/"$NAME"/html/wp-content/uploads -type d -print0 |xargs -0 chmod 755
+	fi
+
+#lockdown tương thích với một số plugin cache
+if [[ -d /usr/local/lsws/"$NAME"/html/wp-content/cache ]];then
+	chmod 755 /usr/local/lsws/"$NAME"/html/wp-content/cache
+	find /usr/local/lsws/"$NAME"/html/wp-content/cache -type d -print0 |xargs -0 chmod 755
+	find /usr/local/lsws/"$NAME"/html/wp-content/cache -type f -print0 |xargs -0 chmod 644
+	chmod 755 /usr/local/lsws/"$NAME"/html/wp-content
+fi
+if [[ -d /usr/local/lsws/"$NAME"/html/wp-content/litespeed ]];then
+	chmod 755 /usr/local/lsws/"$NAME"/html/wp-content/litespeed
+	find /usr/local/lsws/"$NAME"/html/wp-content/litespeed -type d -print0 |xargs -0 chmod 755
+	find /usr/local/lsws/"$NAME"/html/wp-content/litespeed -type f -print0 |xargs -0 chmod 644
+fi
+
+else
+	find /usr/local/lsws/"$NAME"/html -type f -print0 |xargs -0 chmod 644
+	find /usr/local/lsws/"$NAME"/html -type d -print0 |xargs -0 chmod 755
+fi
+
+chmod 444 /usr/local/lsws/"$NAME"/html/index.php
+if [[ -f /usr/local/lsws/"$NAME"/html/wp-config.php ]];then
+chmod 600 /usr/local/lsws/"$NAME"/html/wp-config.php
+fi
+
+if [[ -f /usr/local/lsws/"$NAME"/html/wp-load.php ]];then
+wp rewrite flush --allow-root --path=/usr/local/lsws/"$NAME"/html >/dev/null 2>&1
+fi
+
+if [[ -d /usr/local/lsws/"$NAME"/html/phpmyadmin && $Website_chinh = $NAME ]];then
+chown -R nobody:nobody /usr/local/lsws/"$NAME"/html/phpmyadmin
+fi
+
+
+/usr/local/lsws/bin/lswsctrl restart >/dev/null 2>&1
+_rundone "Phân quyền website $NAME"
+
+clear
+echoDone "==================================================================="
+echoDone "Phân quyền website $NAME hoàn tất                 "
+echoDone "==================================================================="
+echoDone "Phân quyền thư mục :/usr/local/lsws/$NAME/html                "
+echoDone "==================================================================="
+echo "==================================================================="
+echo "Phần mềm phát triển bởi: Gia Tuấn"
+echo "==================================================================="
+
+check_menu_wptangtoc_active=$1
+if [[ $check_menu_wptangtoc_active = "98" ]];then
+. /etc/wptt/wptt-domain-main 1
+fi
+

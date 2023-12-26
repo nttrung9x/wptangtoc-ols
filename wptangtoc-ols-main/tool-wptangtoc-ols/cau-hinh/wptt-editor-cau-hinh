@@ -1,0 +1,77 @@
+#!/bin/bash
+echo ""
+echo ""
+echo ""
+echo "========================================================================="
+echo "|Cấu hình webserver => Cấu hình lựa chọn editor                         |"
+echo "========================================================================="
+. /etc/wptt/.wptt.conf
+if [[ $editor_cau_hinh = "" ]];then
+editor_cau_hinh="nano" 
+fi
+
+echo "========================================================================="
+echo "Hiện tại bạn đang sử dụng Editor: $editor_cau_hinh"
+echo "========================================================================="
+
+echo "Bạn hãy lựa chọn editor soạn thảo văn bản bạn muốn sử dụng [0 = Thoát]: "
+prompt="Nhập vào lựa chọn của bạn [1-3]: "
+trinh_go_code="nano"
+options=("vim" "vi" "nano")
+PS3="$prompt"
+select opt in "${options[@]}"; do
+    case "$REPLY" in
+    1)
+        trinh_go_code="vim"
+        break
+        ;;
+    2)
+        trinh_go_code="vi"
+        break
+        ;;
+
+    3)
+        trinh_go_code="nano"
+        break
+        ;;
+    $((${#options[@]} + 1)))
+        printf "\nHe thong se van su dung nano\n"
+        break
+        ;;
+    *) wptangtoc ;;
+    esac
+done
+clear
+
+if [[ "$trinh_go_code" = "$editor_cau_hinh" ]]; then
+    echo "Hien tai ban dang su dung trinh soan van ban $trinh_go_code nay roi"
+	sleep 3
+    . /etc/wptt/wptt-cau-hinh-websever-main
+    exit
+fi
+
+if [[ "$trinh_go_code" = "0" || "$trinh_go_code" = "" ]]; then
+    . /etc/wptt/wptt-cau-hinh-websever-main
+    exit
+fi
+
+
+if [[ "$trinh_go_code" ]];then
+	if [[ ! -f /usr/bin/$trinh_go_code ]];then
+	echo "Tien hanh cai dat editor: $trinh_go_code"
+	yum install $trinh_go_code -y
+	fi
+fi
+
+sed -i "/editor_cau_hinh/d" /etc/wptt/.wptt.conf
+echo "editor_cau_hinh=$trinh_go_code" >> /etc/wptt/.wptt.conf
+
+echo "========================================================================="
+echo "|Chuyển đổi thành công editor mặc định thành $trinh_go_code "
+echo "========================================================================="
+
+check_menu_wptangtoc_active=$1
+if [[ $check_menu_wptangtoc_active = "98" ]];then
+. /etc/wptt/wptt-cau-hinh-websever-main 1
+fi
+

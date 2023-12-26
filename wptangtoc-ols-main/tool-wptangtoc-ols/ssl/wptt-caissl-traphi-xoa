@@ -1,0 +1,130 @@
+#!/bin/bash
+# @author: Gia Tuấn
+# @website: https://wptangtoc.com
+# @since: 2022
+
+echo ""
+echo ""
+echo ""
+echo "========================================================================="
+echo "|Quản lý SSL => Xóa trả phí paid                                        |"
+echo "========================================================================="
+
+
+. /etc/wptt/.wptt.conf
+. /etc/wptt/tenmien
+echo ""
+echo ""
+echo "Lựa chọn website muốn xóa SSL trả phí (HTTPS): "
+echo ""
+lua_chon_NAME
+
+. /etc/wptt/echo-color
+if [[ "$NAME" = "0" || "$NAME" = "" ]]; then
+  . /etc/wptt/wptt-ssl-main 1
+fi
+
+pathcheck="/etc/wptt/vhost/.$NAME.conf"
+if [[ ! -f "$pathcheck" ]]; then
+    clear
+	echoDo "Tên miền không tồn tại trên hệ thống này"
+    sleep 3
+	  . /etc/wptt/wptt-ssl-main 1
+    exit
+fi
+
+
+if [[ ! -d /usr/local/lsws/"$NAME"/ssl ]];then
+echo "website $NAME chưa thiết lập SSL trả phí"
+. /etc/wptt/wptt-ssl-main 1
+fi
+
+echo "Xác nhận bạn muốn xóa SSL trả phí cho website $NAME"
+prompt="Nhập lựa chọn của bạn [1-2]: "
+dongy="n"
+options=("Đồng ý" "Không đồng ý")
+PS3="$prompt"
+select opt in "${options[@]}"; do
+	case "$REPLY" in
+		1)
+			dongy="y"
+			break
+			;;
+
+		2)
+			dongy="n"
+			break
+			;;
+
+		$((${#options[@]} + 1)))
+			printf "\nBạn nhập sai hệ thống sẽ chọn là không đồng ý\n"
+			break
+			;;
+		*)
+			printf "Bạn nhập sai hệ thống sẽ chọn là không đồng ý\n"
+			break
+			;;
+	esac
+done
+
+if [[ $dongy != 'y' ]];then
+. /etc/wptt/wptt-ssl-main 1
+fi
+
+_runing "Hủy kích hoạt SSL trả phí website $NAME"
+
+if [[ "$NAME" = "$Website_chinh" ]]; then
+  sed -i "/keyFile/d" /usr/local/lsws/conf/httpd_config.conf
+  sed -i "/certFile/d" /usr/local/lsws/conf/httpd_config.conf
+  sed -i "/CACertFile/d" /usr/local/lsws/conf/httpd_config.conf
+  sed -i "/https/a keyFile              \/etc\/letsencrypt\/live\/$NAME\/privkey.pem" /usr/local/lsws/conf/httpd_config.conf
+  sed -i "/https/a certFile             \/etc\/letsencrypt\/live\/$NAME\/cert.pem" /usr/local/lsws/conf/httpd_config.conf
+  sed -i "/https/a CACertFile           \/etc\/letsencrypt\/live\/$NAME\/chain.pem" /usr/local/lsws/conf/httpd_config.conf
+fi
+
+
+sed -i -e '/^vhssl /,/^}$/d' /usr/local/lsws/conf/vhosts/$NAME/$NAME.conf
+echo "vhssl  {
+  keyFile                 /etc/letsencrypt/live/$NAME/privkey.pem
+  certFile                /etc/letsencrypt/live/$NAME/cert.pem
+  certChain               0
+  CACertFile              /etc/letsencrypt/live/$NAME/chain.pem
+  sslProtocol             24
+  renegProtection         1
+  sslSessionCache         1
+  sslSessionTickets       1
+  enableSpdy              15
+  enableQuic              1
+  enableStapling          1
+  ocspRespMaxAge          86400
+  ocspResponder           http://cert.int-x3.letsencrypt.org/
+  ocspCACerts             /etc/letsencrypt/live/$NAME/chain.pem
+}
+
+" >>/usr/local/lsws/conf/vhosts/"$NAME"/"$NAME".conf
+
+if [[ -d /usr/local/lsws/"$NAME"/ssl ]];then
+rm -rf /usr/local/lsws/"$NAME"/ssl
+fi
+
+path2="/usr/local/lsws/$NAME/html/.htaccess"
+grepwww=$(grep -c 'RewriteCond %{HTTP_HOST} ^www' $path2)
+grepssl=$(grep -c 'RewriteCond %{HTTPS} !=on' $path2)
+
+if [[ "$grepssl" != "0" ]]; then
+  if [[ "$grepwww" = "0" ]]; then
+    sed -i '/RewriteCond %{HTTPS} !=on/,+1d' $path2
+  else
+    sed -i '/RewriteCond %{HTTP_HOST} ^www/,+3d' $path2
+  fi
+fi
+
+/usr/local/lsws/bin/lswsctrl restart >/dev/null 2>&1
+_rundone "Hủy kích hoạt SSL trả phí website $NAME"
+
+check_menu_wptangtoc_active=$1
+if [[ $check_menu_wptangtoc_active = "98" ]];then
+. /etc/wptt/wptt-ssl-main 1
+fi
+
+

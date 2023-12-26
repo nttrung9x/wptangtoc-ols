@@ -1,0 +1,74 @@
+#!/bin/bash
+echo ""
+echo ""
+echo ""
+echo "========================================================================="
+echo "|Cấu hình webserver => Cấu hình Redis 	 	                          |"
+echo "========================================================================="
+echo ""
+echo ""
+
+. /etc/wptt/echo-color
+if [[ ! -f /etc/redis.conf ]];then
+echoDo "Ban chua kich hoat Redis"
+exit
+fi
+
+echo "Mọi cấu hình, mình đã cấu hình tối ưu, nếu bạn có nhu cầu đặc biệt bạn có thể tự sửa"
+echo "Lưu ý: hãy thật sự cẩn thân khi sửa cấu hình hệ thống"
+sleep 2
+read -p "Xác nhận bạn muốn cấu hình Redis (y/n): " dongy
+if [[ "$dongy" = "y" ]]; then
+. /etc/wptt/.wptt.conf
+if [[ $editor_cau_hinh = "" ]];then
+editor_cau_hinh="nano" 
+fi
+echo '                                              
+                     ::::                     
+                    :-::-:                    
+        ..      ..::::::::::..      ..        
+       :-:-:..:----::::::::---::..:-:-:       
+       .:::::--:..          ..:--:::::.       
+        .::::.                  :::::.        
+        ::::                     .::::        
+       ::::       .-=++++=-.       ::::       
+      .-::       =*******##*=       ::-.      
+  ..::::-.      +********:.+#=      ::::::..  
+  ---:::-.     .***=-**- .=***      .-:::---  
+  ..::::-.      +**=.  .=****=      ::::::..  
+      .-::      .+*#*==*****=       ::-.      
+       ::::       :=+***++-.       ::::       
+        ::::                      ::::        
+        .::::.                  :::::.        
+       .:::::--:.            .:--:::::.       
+       :-:-:..::--::::..:::---::..:-:-:       
+        ..       ..::::::::..       ..        
+                    .::::.                    
+                     ::::                     
+                                              
+'
+echo "Sử dụng công cụ editor: $editor_cau_hinh để chính sửa"
+if [[ $editor_cau_hinh = "nano" ]];then
+    echo "Chỉnh sửa xong ấn ctrl + o để lưu lại và ctrl + x để thoát ra"
+    echoVang "Hãy cẩn thận khi chỉnh sửa lại Redis!!"
+    sleep 3
+fi
+sleep 2
+
+check_thay_doi=$(md5sum /etc/redis.conf |cut -f1 -d ' ' > /tmp/redis_cau_hinh_wptangtoc)
+$editor_cau_hinh /etc/redis.conf
+	if [[ $(cat /tmp/redis_cau_hinh_wptangtoc) != $(md5sum /etc/redis.conf |cut -f1 -d ' ')  ]];then
+	. /etc/wptt/echo-color
+	_runing "Khởi động lại redis để cập nhật giá trị"
+systemctl restart redis.service
+	_rundone "Khởi động lại redis để cập nhật giá trị"
+	fi
+else
+	. /etc/wptt/wptt-cau-hinh-websever-main 1
+fi
+
+check_menu_wptangtoc_active=$1
+if [[ $check_menu_wptangtoc_active = "98" ]];then
+. /etc/wptt/wptt-cau-hinh-websever-main 1
+fi
+

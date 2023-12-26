@@ -1,0 +1,42 @@
+#!/bin/bash
+echo "========================================================================="
+echo "|Quản lý bảo mật => CSF => Hủy Cài Đặt                                  |"
+echo "========================================================================="
+
+if [[ -f /etc/csf/csf.conf ]];then
+systemctl stop csf
+systemctl stop lfd
+systemctl disable csf
+systemctl stop lfd
+. /etc/csf/uninstall.sh
+yum install remove perl-libwww-perl.noarch perl-Time-HiRes -y
+rm -rf /etc/csf
+systemctl unmask firewalld
+systemctl start firewalld
+systemctl enable firewalld
+firewall-cmd --zone=public --add-service=http --add-service=https --permanent
+firewall-cmd --zone=public --add-port=443/udp --permanent
+port_ssh=$(cat /etc/ssh/sshd_config | grep "Port " | cut -f2 -d" ")
+if [[ $port_ssh = "" ]];then
+port_ssh=22
+fi
+firewall-cmd --zone=public --add-port=${port_ssh}/tcp --permanent
+
+path_webgui="/usr/local/lsws/conf/disablewebconsole"
+if [[ -f $path_webgui ]]; then
+. /etc/wptt/.wptt.conf
+firewall-cmd --zone=public --add-port=${port_webgui_openlitespeed}/tcp --permanent
+/usr/local/lsws/bin/lswsctrl restart >/dev/null 2>&1
+fi
+
+firewall-cmd --reload
+echo "Hoàn tất Xóa cài đặt CSF"
+else
+echo "Bạn chưa đã cài đặt CSF"
+fi
+
+check_menu_wptangtoc_active=$1
+if [[ $check_menu_wptangtoc_active = "98" ]];then
+. /etc/wptt/bao-mat/csf-main 1
+fi
+

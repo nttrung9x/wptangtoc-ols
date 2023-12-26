@@ -1,0 +1,39 @@
+#!/bin/bash
+. /etc/wptt/wptt-header-menu
+header_menu
+echo ""
+echo ""
+echo "Quản lý chuyển website:"
+echo ""
+options=(
+    "Chuyển website bên ngoài về WPTangToc OLS"                       #1
+	"Chuyển tất cả website WPTangToc ols về WPTangToc ols"
+	"Chuyển toàn bộ VPS"
+	"Chuyển tất cả website WPTangToc OLS về WPTangToc OLS Bằng Rsync"
+	"Chuyển 1 website WPTangToc OLS về WPTangToc OLS Bằng Rsync"
+)
+PS3="
+Nhập lựa chọn của bạn (1-${#options[@]}) [0=Thoát]: "
+select opt in "${options[@]}"; do
+    case $opt in
+
+    "${options[0]}")
+        "/etc/wptt/chuyen-web/wptt-chuyen-website"
+        ;;
+    "${options[1]}")
+        "/etc/wptt/chuyen-web/wptt-chuyen-website-all"
+        ;;
+    "${options[2]}")
+        "/etc/wptt/chuyen-web/wptt-chuyen-vps"
+        ;;
+    "${options[3]}")
+        "/etc/wptt/chuyen-web/rsync-move"
+        ;;
+
+    "${options[4]}")
+        "/etc/wptt/chuyen-web/rsync-move-only"
+    ;;
+
+    *) wptangtoc 1 ;;
+    esac
+done

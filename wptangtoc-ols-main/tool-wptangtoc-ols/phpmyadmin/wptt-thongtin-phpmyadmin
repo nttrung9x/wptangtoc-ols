@@ -1,0 +1,52 @@
+#!/bin/bash
+echo ""
+echo ""
+echo ""
+echo "========================================================================="
+echo "|Quản lý PhpMyAdmin => Xem thông tin tài khoản database PhpMyAdmin      |"
+echo "========================================================================="
+echo ""
+echo ""
+
+. /etc/wptt/.wptt.conf
+
+. /etc/wptt/echo-color
+
+if [[ $id_dang_nhap_phpmyadmin = "" || ! -d /usr/local/lsws/$Website_chinh/html/phpmyadmin ]];then
+echoDo "Bạn chưa kích hoạt PhpMyAdmin"
+sleep 3
+    . /etc/wptt/wptt-phpmyadmin-main 1
+exit
+fi
+
+echo "Tài khoản truy cập vào PhpMyAdmin"
+
+if [[ -f "/etc/letsencrypt/live/$NAME/cert.pem" || -f "/etc/letsencrypt/live/$NAME-0001/cert.pem" || -d "/usr/local/lsws/$NAME/ssl" ]]; then
+echo '--------------------------------------------------'
+echo "Truy cap		: https://$Website_chinh/phpmyadmin"
+else
+echo '--------------------------------------------------'
+echo "Truy cap		: http://$Website_chinh/phpmyadmin"
+fi
+echo "Ten Dang nhap		: $id_dang_nhap_phpmyadmin"
+echo "Password dang nhap	: $password_dang_nhap_phpmyadmin"
+echo '--------------------------------------------------'
+echo ""
+echo "Tai khoan dang nhap database website: "
+if [ "$(ls -A /etc/wptt/vhost)" ]; then
+echo '--------------------------------------------------'
+  for entry in $(ls -A /etc/wptt/vhost); do
+    domain=$( echo $entry | sed 's/^.//' | sed 's/.conf//')
+    path="/usr/local/lsws/$domain/html"
+    i=1
+    if [[ -d "$path" ]]; then
+         . /etc/wptt/vhost/.$domain.conf && echo "Website : $domain " && echo "Username: $DB_User_web" && echo "Password: $DB_Password_web" && echo "--------------------------------------------------" && echo ""
+    fi
+  done
+fi
+
+check_menu_wptangtoc_active=$1
+if [[ $check_menu_wptangtoc_active = "98" ]];then
+. /etc/wptt/wptt-phpmyadmin-main 1
+fi
+

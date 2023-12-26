@@ -1,0 +1,70 @@
+#!/bin/bash
+# @author: Gia Tuấn
+# @website: https://wptangtoc.com
+# @since: 2022
+
+echo "========================================================================="
+echo "|Quản lý WebGuiAdmin => Hủy kích hoạt                                   |"
+echo "========================================================================="
+. /etc/wptt/.wptt.conf
+. /etc/wptt/echo-color
+path="/usr/local/lsws/conf/disablewebconsole"
+if [[ -f $path ]]; then
+    echoDo "Bạn đắt tắt webguiadmin trước đó rồi"
+    sleep 3
+    . /etc/wptt/wptt-webadmin-main 1
+    exit
+fi
+
+port_webgui_openlitespeed=$(cat /usr/local/lsws/admin/conf/admin_config.conf | grep "address" | cut -f2 -d":")
+
+echo "Xác nhận bạn muốn tắt OpenLiteSpeed webgui?"
+
+prompt="Nhập lựa chọn của bạn [1-2]: "
+confirm="n"
+options=("Đồng ý" "Không đồng ý")
+PS3="$prompt"
+select opt in "${options[@]}"; do
+	case "$REPLY" in
+		1)
+			confirm="y"
+			break
+			;;
+
+		2)
+			confirm="n"
+			break
+			;;
+
+		$((${#options[@]} + 1)))
+			printf "\nBạn nhập sai hệ thống sẽ chọn là không đồng ý\n"
+			break
+			;;
+		*)
+			printf "Bạn nhập sai hệ thống sẽ chọn là không đồng ý\n"
+			break
+			;;
+	esac
+done
+
+
+if [[ "$confirm" = "y" ]]; then
+_runing "Tắt webguiadmin"
+    touch /usr/local/lsws/conf/disablewebconsole
+    firewall-cmd --zone=public --remove-port=$port_webgui_openlitespeed/tcp --permanent >/dev/null 2>&1
+    firewall-cmd --reload >/dev/null 2>&1
+    /usr/local/lsws/bin/lswsctrl restart >/dev/null 2>&1
+_rundone "Tắt webguiadmin"
+fi
+
+#đóng port csf
+if [[ -f /etc/csf/csf.conf ]];then
+sed -i -r '/^TCP_IN /s/"'$port_webgui_openlitespeed'"/""/; s/([",])'$port_webgui_openlitespeed',|,'$port_webgui_openlitespeed'([,"])/\1\2/' /etc/csf/csf.conf
+csf -x >/dev/null 2>&1
+csf -e >/dev/null 2>&1
+fi
+
+check_menu_wptangtoc_active=$1
+if [[ $check_menu_wptangtoc_active = "98" ]];then
+ . /etc/wptt/wptt-webadmin-main 1
+fi

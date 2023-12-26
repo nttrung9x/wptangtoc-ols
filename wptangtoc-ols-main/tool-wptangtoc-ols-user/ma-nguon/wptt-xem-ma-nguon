@@ -1,0 +1,20 @@
+#!/bin/bash
+echo ""
+echo ""
+echo ""
+echo "========================================================================="
+echo "|Quan ly Ma nguon => Xem tong quan ma website                           |"
+echo "========================================================================="
+. /etc/wptt/tenmien
+lua_chon_NAME
+name="$NAME"
+
+tuan=$(tree /usr/local/lsws/$NAME/html)
+echo "$tuan"
+
+checkmanguon=($tuan | grep "directories," | cut -f1 -d " ")
+checkmanguonfile=($tuan | grep "directories," | cut -f3 -d " ")
+echo ""
+echo "Ma nguon webiste $NAME"
+echo "Tong so Thu muc: $checkmanguon"
+echo "Tong so file $checkmanguonfile"
