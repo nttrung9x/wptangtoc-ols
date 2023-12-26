@@ -1,0 +1,21 @@
+#!/bin/bash
+# @author: Gia Tuấn
+# @website: https://wptangtoc.com
+# @email: giatuan@wptangtoc.com
+# @since: 2023
+
+OUTPUT=$(cat /etc/*release)
+if  echo $OUTPUT | grep -q "CentOS Linux 7" ; then
+	SERVER_OS='centos'
+elif echo $OUTPUT | grep -q "AlmaLinux 8" ; then
+	SERVER_OS='almalinux'
+elif echo $OUTPUT | grep -q "Rocky Linux 8" ; then
+	SERVER_OS='almalinux'
+else
+	echo "Muốn sử dụng WPTangToc OLS vui lòng dùng hệ điều hành (Almalinux 8|Rocky linux 8 |Centos 7)"
+	rm -f wptangtoc-ols
+	exit
+fi
+
+rm -f wptangtoc-ols
+curl -sO https://raw.githubusercontent.com/nttrung9x/wptangtoc-ols/main/wptangtoc-ols-$SERVER_OS && bash wptangtoc-ols-$SERVER_OS $1
